@@ -1,0 +1,5 @@
+{
+  "name": "BiteAid",
+  "description": "A privacy-first AI wellness assistant that analyzes meal photos to provide instant, non-judgmental harm-reduction guidance and nutritional insights.",
+  "requestFramePermissions": []
+}
