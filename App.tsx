@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Header } from './components/Header';
 import { UploadZone } from './components/UploadZone';
 import { GoalSelector } from './components/GoalSelector';
@@ -13,6 +13,9 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  
+  // Track the current analysis ID to handle cancellation/race conditions
+  const analysisIdRef = useRef<number>(0);
 
   const handleImageSelect = async (file: File) => {
     setIsLoading(true);
@@ -23,15 +26,39 @@ const App: React.FC = () => {
     const previewUrl = URL.createObjectURL(file);
     setImagePreview(previewUrl);
 
+    // Increment request ID
+    const currentId = analysisIdRef.current + 1;
+    analysisIdRef.current = currentId;
+
     try {
       const base64Data = await fileToGenerativePart(file);
+      
+      // Check if cancelled during file processing
+      if (analysisIdRef.current !== currentId) return;
+
       const data = await analyzeMealImage(base64Data, file.type, currentGoal);
-      setResult(data);
+      
+      // Check if cancelled during API call
+      if (analysisIdRef.current === currentId) {
+        setResult(data);
+        setIsLoading(false);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
-    } finally {
-      setIsLoading(false);
+      if (analysisIdRef.current === currentId) {
+        setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+        setIsLoading(false);
+      }
     }
+  };
+
+  const handleCancelAnalysis = () => {
+    // Increment ID to invalidate any pending requests
+    analysisIdRef.current += 1;
+    setIsLoading(false);
+    // Note: We keep the imagePreview in case they want to retry, or we could clear it.
+    // Given "user might get it wrong", clearing it to allow new selection is better.
+    setImagePreview(null);
+    setError(null);
   };
 
   const handleReset = () => {
@@ -69,6 +96,7 @@ const App: React.FC = () => {
                  <UploadZone 
                     onImageSelected={handleImageSelect} 
                     isLoading={isLoading} 
+                    onCancel={handleCancelAnalysis}
                  />
               </div>
             </div>

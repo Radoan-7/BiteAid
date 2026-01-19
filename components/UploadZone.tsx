@@ -1,12 +1,13 @@
 import React, { useRef, useState } from 'react';
-import { Camera, Image as ImageIcon, Sparkles, ScanLine } from 'lucide-react';
+import { Camera, Image as ImageIcon, Sparkles, ScanLine, X } from 'lucide-react';
 
 interface UploadZoneProps {
   onImageSelected: (file: File) => void;
   isLoading: boolean;
+  onCancel?: () => void;
 }
 
-export const UploadZone: React.FC<UploadZoneProps> = ({ onImageSelected, isLoading }) => {
+export const UploadZone: React.FC<UploadZoneProps> = ({ onImageSelected, isLoading, onCancel }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -42,12 +43,17 @@ export const UploadZone: React.FC<UploadZoneProps> = ({ onImageSelected, isLoadi
     onImageSelected(file);
   };
 
+  const handleCancel = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onCancel) onCancel();
+  };
+
   return (
     <div 
       className={`
         relative group w-full max-w-lg mx-auto h-64 border-2 border-dashed rounded-3xl transition-all duration-300 cursor-pointer overflow-hidden
         ${isDragOver ? 'border-emerald-500 bg-emerald-50 scale-[1.02]' : 'border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50'}
-        ${isLoading ? 'pointer-events-none border-emerald-200 bg-emerald-50/10' : ''}
+        ${isLoading ? 'border-emerald-200 bg-emerald-50/10' : ''}
       `}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -83,8 +89,17 @@ export const UploadZone: React.FC<UploadZoneProps> = ({ onImageSelected, isLoadi
 
       {/* Loading/Processing State Content */}
       {isLoading && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-[2px] z-10 animate-in fade-in duration-300">
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-[2px] z-10 animate-in fade-in duration-300 cursor-default">
            
+           {/* Cancel Button */}
+           <button 
+             onClick={handleCancel}
+             className="absolute top-4 right-4 p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors z-20"
+             title="Cancel Upload"
+           >
+             <X className="w-5 h-5" />
+           </button>
+
            {/* Animated Icon */}
            <div className="relative mb-6">
              <div className="absolute inset-0 bg-emerald-400 rounded-full animate-ping opacity-20"></div>

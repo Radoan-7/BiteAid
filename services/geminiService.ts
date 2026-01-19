@@ -28,44 +28,37 @@ export const analyzeMealImage = async (
   const model = "gemini-3-flash-preview";
 
   const systemPrompt = `
-    You are BiteAid, a sophisticated, privacy-first nutrition assistant. 
+    You are BiteAid, a supportive, privacy-first nutrition assistant. 
     Analyze the food image provided. 
     Do not calculate calories. 
-    Focus on qualitative impact, metabolic health, and actionable harm reduction.
+    Focus on qualitative impact and harm reduction.
     
     CRITICAL CONTEXT:
     The user's specific wellness goal is: "${goal}".
-    Tailor all advice to directly support "${goal}".
+    Tailor all advice, especially "do_this" and "avoid_this", to directly support "${goal}".
 
     Output JSON ONLY based on the schema provided.
     
     Guidance on fields:
+    - detected_foods: List visible items.
+    - health_impact_level: "Low" (Healthy/Safe), "Moderate" (Okay occasionally), "High" (Potential adverse effects if consumed often/large quantity).
+    - nutritional_risks: E.g., "High Sodium", "Added Sugar", "Low Fiber", "Deep Fried", "Blood Sugar Spike Risk".
     
-    1. **detected_foods**:
-       - "primary_items": The main components (e.g., "Grilled Salmon", "Cheeseburger", "Bowl of Rice").
-       - "secondary_ingredients": Sides, sauces, or smaller visible ingredients (e.g., "Ketchup", "Sesame seeds", "Side Salad").
+    - actionable_guidance: Provide 2-3 distinct, specific, and practical tips per category.
+      - "do_this": Immediate positive actions during this meal. 
+        * Examples: "Drink a full glass of water first", "Eat the protein/veggies first to reduce glucose spike", "Add lemon juice to lower glycemic response".
+      - "avoid_this": What to skip, limit, or remove *right now*. 
+        * Examples: "Skip the extra sauce", "Leave the crust", "Eat only half the portion of rice", "Avoid sugary drinks with this".
+      - "consider_balancing": Post-meal or next-meal adjustments.
+        * Examples: "Take a 10-minute walk after eating to aid digestion/blood sugar", "Ensure next meal is fiber-rich", "Wait 3-4 hours before eating again".
 
-    2. **health_impact_level**: 
-       - "Low" (Nutrient dense, balanced), "Moderate" (Okay occasional), "High" (Metabolically taxing, processed, or unbalanced).
+    - brief_supportive_comment: A 1-sentence non-judgmental observation that acknowledges the food's appeal while subtly nudging towards the goal.
     
-    3. **main_concern_summary**: 
-       - A short, punchy 5-7 word summary of the *primary* reason for the impact level. E.g., "High glycemic load and sodium", "Excellent fiber and protein balance".
-
-    4. **nutritional_risks**: 
-       - Identify up to 3 specific risks.
-       - "severity": 'high' (main concern) or 'medium'/'low' (minor note).
-       - "explanation": Very short context (e.g. "May cause bloating").
-
-    5. **actionable_guidance** (The "Smart Plan"):
-       - **right_now**: What to do *during* this meal to reduce harm. (e.g., "Eat the veggies first", "Drink water", "Leave the crust").
-       - **later_today**: How to compensate in the next 4-6 hours. (e.g., "Take a 15min walk", "Hydrate extra").
-       - **next_meal**: What to prioritize next time to rebalance. (e.g., "Focus on lean protein", "Skip refined carbs").
-       - *Crucial*: For every action, provide a "why_it_helps" (short scientific rationale, e.g., "Reduces glucose spike").
-
-    6. **brief_supportive_comment**: 
-       - A sophisticated, non-judgmental closing remark.
-
-    Ensure the tone is professional, intelligent, yet warm.
+    SPECIAL INSTRUCTION FOR 'HIGH' IMPACT:
+    If the meal is High impact (e.g., fast food, heavy fried food, high sugar):
+    - Focus heavily on "harm reduction" (e.g., portion control, hydration, order of eating).
+    - Suggest movement (e.g., walking) in "consider_balancing" to mitigate metabolic impact.
+    - Be realistic—don't just say "don't eat it" if it's on their plate, say "eat slowly" or "save half".
   `;
 
   try {
@@ -90,63 +83,29 @@ export const analyzeMealImage = async (
           type: Type.OBJECT,
           properties: {
             detected_foods: {
-              type: Type.OBJECT,
-              properties: {
-                primary_items: { type: Type.ARRAY, items: { type: Type.STRING } },
-                secondary_ingredients: { type: Type.ARRAY, items: { type: Type.STRING } }
-              },
-              required: ["primary_items", "secondary_ingredients"]
+              type: Type.ARRAY,
+              items: { type: Type.STRING }
             },
             health_impact_level: {
               type: Type.STRING,
               enum: ["Low", "Moderate", "High"]
             },
-            main_concern_summary: { type: Type.STRING },
             nutritional_risks: {
               type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  name: { type: Type.STRING },
-                  severity: { type: Type.STRING, enum: ["high", "medium", "low"] },
-                  explanation: { type: Type.STRING }
-                },
-                required: ["name", "severity", "explanation"]
-              }
+              items: { type: Type.STRING }
             },
             actionable_guidance: {
               type: Type.OBJECT,
               properties: {
-                right_now: { 
-                  type: Type.ARRAY, 
-                  items: { 
-                    type: Type.OBJECT, 
-                    properties: { action: {type: Type.STRING}, why_it_helps: {type: Type.STRING} },
-                    required: ["action", "why_it_helps"]
-                  } 
-                },
-                later_today: { 
-                   type: Type.ARRAY, 
-                  items: { 
-                    type: Type.OBJECT, 
-                    properties: { action: {type: Type.STRING}, why_it_helps: {type: Type.STRING} },
-                    required: ["action", "why_it_helps"]
-                  } 
-                },
-                next_meal: { 
-                   type: Type.ARRAY, 
-                  items: { 
-                    type: Type.OBJECT, 
-                    properties: { action: {type: Type.STRING}, why_it_helps: {type: Type.STRING} },
-                    required: ["action", "why_it_helps"]
-                  } 
-                }
+                do_this: { type: Type.ARRAY, items: { type: Type.STRING } },
+                avoid_this: { type: Type.ARRAY, items: { type: Type.STRING } },
+                consider_balancing: { type: Type.ARRAY, items: { type: Type.STRING } }
               },
-              required: ["right_now", "later_today", "next_meal"]
+              required: ["do_this", "avoid_this", "consider_balancing"]
             },
             brief_supportive_comment: { type: Type.STRING }
           },
-          required: ["detected_foods", "health_impact_level", "main_concern_summary", "nutritional_risks", "actionable_guidance", "brief_supportive_comment"]
+          required: ["detected_foods", "health_impact_level", "nutritional_risks", "actionable_guidance", "brief_supportive_comment"]
         }
       }
     });
