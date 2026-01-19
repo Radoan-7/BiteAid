@@ -1,13 +1,20 @@
+export type ConfidenceLevel = 'High' | 'Medium' | 'Low';
+
+export interface ConfidentItem {
+  text: string;
+  confidence: ConfidenceLevel;
+}
+
 export interface ActionableGuidance {
-  do_this: string[];
-  avoid_this: string[];
-  consider_balancing: string[];
+  do_this: ConfidentItem[];
+  avoid_this: ConfidentItem[];
+  consider_balancing: ConfidentItem[];
 }
 
 export interface AnalysisResult {
-  detected_foods: string[];
+  detected_foods: ConfidentItem[];
   health_impact_level: 'Low' | 'Moderate' | 'High';
-  nutritional_risks: string[];
+  nutritional_risks: ConfidentItem[];
   actionable_guidance: ActionableGuidance;
   brief_supportive_comment: string;
 }
@@ -24,4 +31,17 @@ export interface AnalysisState {
   error: string | null;
   result: AnalysisResult | null;
   imagePreview: string | null;
+}
+
+export interface ImpactMetric {
+  label: string;
+  trend: 'increase' | 'decrease' | 'neutral';
+}
+
+export interface SimulationResult {
+  title: string;
+  metrics: ImpactMetric[];
+  explanation: string;
+  explanation_confidence: ConfidenceLevel;
+  swap_suggestion: string;
 }
