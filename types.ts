@@ -1,14 +1,31 @@
-export interface ActionableGuidance {
-  do_this: string[];
-  avoid_this: string[];
-  consider_balancing: string[];
+export interface AdviceItem {
+  action: string;
+  why_it_helps: string;
+}
+
+export interface ActionableTimeline {
+  right_now: AdviceItem[];
+  later_today: AdviceItem[];
+  next_meal: AdviceItem[];
+}
+
+export interface Risk {
+  name: string;
+  severity: 'high' | 'medium' | 'low';
+  explanation: string;
+}
+
+export interface DetectedFoods {
+  primary_items: string[];
+  secondary_ingredients: string[];
 }
 
 export interface AnalysisResult {
-  detected_foods: string[];
+  detected_foods: DetectedFoods;
   health_impact_level: 'Low' | 'Moderate' | 'High';
-  nutritional_risks: string[];
-  actionable_guidance: ActionableGuidance;
+  main_concern_summary: string;
+  nutritional_risks: Risk[];
+  actionable_guidance: ActionableTimeline;
   brief_supportive_comment: string;
 }
 

@@ -11,7 +11,7 @@ export const Header: React.FC = () => {
           </div>
           <div>
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">BiteAid</h1>
-            <p className="text-xs text-slate-500 font-medium">Privacy-First Wellness</p>
+            <p className="text-xs text-slate-500 font-medium">eat now, fix later</p>
           </div>
         </div>
         

@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Upload, Camera, Image as ImageIcon } from 'lucide-react';
+import { Camera, Image as ImageIcon, Sparkles, ScanLine } from 'lucide-react';
 
 interface UploadZoneProps {
   onImageSelected: (file: File) => void;
@@ -47,12 +47,12 @@ export const UploadZone: React.FC<UploadZoneProps> = ({ onImageSelected, isLoadi
       className={`
         relative group w-full max-w-lg mx-auto h-64 border-2 border-dashed rounded-3xl transition-all duration-300 cursor-pointer overflow-hidden
         ${isDragOver ? 'border-emerald-500 bg-emerald-50 scale-[1.02]' : 'border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50'}
-        ${isLoading ? 'pointer-events-none opacity-50' : ''}
+        ${isLoading ? 'pointer-events-none border-emerald-200 bg-emerald-50/10' : ''}
       `}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      onClick={() => fileInputRef.current?.click()}
+      onClick={() => !isLoading && fileInputRef.current?.click()}
     >
       <input 
         type="file" 
@@ -62,29 +62,54 @@ export const UploadZone: React.FC<UploadZoneProps> = ({ onImageSelected, isLoadi
         onChange={handleChange}
       />
       
-      <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
+      {/* Idle State Content */}
+      <div 
+        className={`absolute inset-0 flex flex-col items-center justify-center p-6 text-center transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+      >
         <div className="mb-4 p-4 bg-emerald-100 text-emerald-600 rounded-full shadow-sm group-hover:scale-110 transition-transform duration-300">
           <Camera className="w-8 h-8" />
         </div>
         <h3 className="text-lg font-bold text-slate-800 mb-1">
-          {isLoading ? 'Analyzing...' : 'Snap or Upload Meal'}
+          Snap or Upload Meal
         </h3>
         <p className="text-sm text-slate-500 max-w-xs mx-auto">
-          {isLoading ? 'Consulting nutrition logic...' : 'Drag & drop a photo, or tap to browse your gallery.'}
+          Drag & drop a photo, or tap to browse your gallery.
         </p>
         
-        {!isLoading && (
-           <div className="mt-6 flex items-center gap-4 text-xs font-medium text-slate-400">
-             <span className="flex items-center gap-1"><ImageIcon className="w-3 h-3"/> JPG, PNG, WEBP</span>
-           </div>
-        )}
+        <div className="mt-6 flex items-center gap-4 text-xs font-medium text-slate-400">
+          <span className="flex items-center gap-1"><ImageIcon className="w-3 h-3"/> JPG, PNG, WEBP</span>
+        </div>
       </div>
 
+      {/* Loading/Processing State Content */}
       {isLoading && (
-        <div className="absolute inset-0 bg-white/60 flex items-center justify-center backdrop-blur-sm">
-           <div className="flex flex-col items-center">
-             <div className="w-10 h-10 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin mb-3"></div>
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-[2px] z-10 animate-in fade-in duration-300">
+           
+           {/* Animated Icon */}
+           <div className="relative mb-6">
+             <div className="absolute inset-0 bg-emerald-400 rounded-full animate-ping opacity-20"></div>
+             <div className="relative bg-white p-4 rounded-full shadow-sm border border-emerald-100">
+                <ScanLine className="w-8 h-8 text-emerald-500 animate-pulse" />
+             </div>
            </div>
+
+           <h3 className="text-lg font-bold text-slate-800 mb-2">Analyzing Meal...</h3>
+           
+           {/* Indeterminate Progress Bar */}
+           <div className="w-48 h-1.5 bg-emerald-100 rounded-full overflow-hidden relative">
+             <div className="absolute inset-y-0 bg-emerald-500 h-full rounded-full animate-[progress-slide_1.5s_infinite_ease-in-out]"></div>
+           </div>
+           
+           {/* Keyframes for the custom progress animation */}
+           <style>{`
+             @keyframes progress-slide {
+               0% { left: -40%; width: 20%; }
+               50% { left: 30%; width: 60%; }
+               100% { left: 100%; width: 20%; }
+             }
+           `}</style>
+
+           <p className="text-xs text-slate-500 mt-3 animate-pulse font-medium">Identifying nutrients & risks</p>
         </div>
       )}
     </div>
