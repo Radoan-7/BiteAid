@@ -11,12 +11,20 @@ export interface ActionableGuidance {
   consider_balancing: ConfidentItem[];
 }
 
+export interface TimelineCheckpoint {
+  time_window: string;
+  feeling_indicators: string[];
+  description: string;
+  confidence: ConfidenceLevel;
+}
+
 export interface AnalysisResult {
   detected_foods: ConfidentItem[];
   health_impact_level: 'Low' | 'Moderate' | 'High';
   nutritional_risks: ConfidentItem[];
   actionable_guidance: ActionableGuidance;
   brief_supportive_comment: string;
+  after_effect_timeline: TimelineCheckpoint[];
 }
 
 export type HealthGoal = 
@@ -44,4 +52,33 @@ export interface SimulationResult {
   explanation: string;
   explanation_confidence: ConfidenceLevel;
   swap_suggestion: string;
+}
+
+// --- Smart Canteen Picker Types ---
+
+export type CanteenGoal = 
+  | 'Sustain Energy' 
+  | 'Maximum Focus' 
+  | 'Light & Recovery' 
+  | 'Balanced & Healthy' 
+  | 'Comfort & Variety';
+
+export interface CanteenBestPick {
+  name: string;
+  price_estimate?: string;
+  match_percentage: number;
+  reason_chips: string[];
+}
+
+export interface RejectedOption {
+  name: string;
+  price_estimate?: string;
+  reason_for_rejection: string;
+}
+
+export interface CanteenAnalysisResult {
+  best_pick: CanteenBestPick;
+  rejected_options: RejectedOption[];
+  pair_with?: string;
+  confidence: ConfidenceLevel;
 }

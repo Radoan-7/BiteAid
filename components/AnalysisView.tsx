@@ -20,7 +20,9 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Minus,
-  RefreshCw
+  RefreshCw,
+  Clock,
+  Zap
 } from 'lucide-react';
 
 interface AnalysisViewProps {
@@ -298,6 +300,51 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
             </ul>
           </div>
         </div>
+
+        {/* After-Effect Timeline */}
+        {result.after_effect_timeline && result.after_effect_timeline.length > 0 && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-400 fill-mode-both">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="p-2 bg-blue-50 rounded-lg border border-blue-100">
+                <Clock className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900">Projected After-Effects</h3>
+                <p className="text-xs text-slate-500">Estimated body response timeline</p>
+              </div>
+            </div>
+            
+            <div className="grid md:grid-cols-3 gap-6 relative">
+               {/* Connecting Line (Desktop Only) */}
+               <div className="hidden md:block absolute top-[18px] left-8 right-8 h-0.5 bg-slate-100 -z-10"></div>
+  
+               {result.after_effect_timeline.map((point, i) => (
+                 <div key={i} className="relative bg-white md:bg-transparent flex flex-col items-start">
+                    {/* Time Badge */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-3 h-3 rounded-full bg-blue-500 border-2 border-white shadow-sm ring-1 ring-blue-100"></div>
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">{point.time_window}</span>
+                    </div>
+                    
+                    <div className="w-full space-y-3 p-4 bg-slate-50/50 rounded-xl border border-slate-100/50 hover:bg-blue-50/30 hover:border-blue-100 transition-colors">
+                       <div className="flex flex-wrap gap-1.5">
+                         {point.feeling_indicators.map((tag, j) => (
+                           <span key={j} className="px-2 py-0.5 bg-white text-slate-700 text-xs font-medium rounded border border-slate-200 shadow-sm">
+                             {tag}
+                           </span>
+                         ))}
+                       </div>
+                       
+                       <p className="text-sm text-slate-600 leading-relaxed">
+                         {point.description}
+                         <ConfidenceIndicator level={point.confidence} tooltip="Based on nutrient breakdown estimation." />
+                       </p>
+                    </div>
+                 </div>
+               ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Buttons: Export & Reset */}

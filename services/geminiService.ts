@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { AnalysisResult, HealthGoal, SimulationResult } from "../types";
+import { AnalysisResult, HealthGoal, SimulationResult, CanteenGoal, CanteenAnalysisResult } from "../types";
 
 // Initialize Gemini Client
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -48,6 +48,12 @@ export const analyzeMealImage = async (
       - "do_this": Immediate positive actions during this meal. 
       - "avoid_this": What to skip, limit, or remove *right now*. 
       - "consider_balancing": Post-meal or next-meal adjustments.
+
+    - after_effect_timeline: Generate a projected timeline of how this meal might affect the user's body.
+      Create exactly 3 checkpoints: "30-60 mins", "2-3 hours", "4-5 hours".
+      - feeling_indicators: 2-3 short, 1-2 word qualitative tags (e.g., "Stable Energy", "Sugar Crash", "Full", "Hungry", "Thirsty").
+      - description: A single plain-language sentence explaining the physiological reason (e.g. "Fiber from the veggies slows digestion, keeping you full.").
+      - confidence: Certainty level based on food composition.
 
     Confidence Level Guidelines:
     - High: Clearly visible, scientifically well-established, or direct observation.
@@ -143,9 +149,25 @@ export const analyzeMealImage = async (
               },
               required: ["do_this", "avoid_this", "consider_balancing"]
             },
+            after_effect_timeline: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  time_window: { type: Type.STRING },
+                  feeling_indicators: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING }
+                  },
+                  description: { type: Type.STRING },
+                  confidence: { type: Type.STRING, enum: ["High", "Medium", "Low"] }
+                },
+                required: ["time_window", "feeling_indicators", "description", "confidence"]
+              }
+            },
             brief_supportive_comment: { type: Type.STRING }
           },
-          required: ["detected_foods", "health_impact_level", "nutritional_risks", "actionable_guidance", "brief_supportive_comment"]
+          required: ["detected_foods", "health_impact_level", "nutritional_risks", "actionable_guidance", "brief_supportive_comment", "after_effect_timeline"]
         }
       }
     });
@@ -225,5 +247,115 @@ export const simulateImpact = async (
   } catch (error) {
     console.error("Simulation Error:", error);
     throw new Error("Could not simulate impact.");
+  }
+};
+
+export const analyzeCanteenSelection = async (
+  foodImageBase64: string,
+  menuImageBase64: string | null,
+  goal: CanteenGoal,
+  budget: string
+): Promise<CanteenAnalysisResult> => {
+  const model = "gemini-3-flash-preview";
+
+  const parts = [];
+  
+  // Primary Part: Food Image
+  parts.push({
+    inlineData: {
+      data: foodImageBase64,
+      mimeType: "image/jpeg" 
+    }
+  });
+
+  // Secondary Part: Menu Image (if present)
+  if (menuImageBase64) {
+    parts.push({
+      inlineData: {
+        data: menuImageBase64,
+        mimeType: "image/jpeg"
+      }
+    });
+  }
+
+  // System Instruction Part
+  const prompt = `
+    You are BiteAid's Canteen Picker Assistant.
+    
+    CONTEXT:
+    The user is at a canteen or cafeteria.
+    - Image 1: The food display/counter showing available options.
+    - Image 2 (optional): The menu or price board.
+    
+    USER GOAL: "${goal}"
+    USER BUDGET: "${budget || "Flexible/Not specified"}"
+
+    TASK:
+    Identify the available food options.
+    Be DECISIVE. Select the single absolute BEST option that maximizes the user's goal.
+    
+    OUTPUT REQUIREMENTS:
+    1. best_pick: The winner.
+       - match_percentage: Integer (0-100). How well does this fit the goal?
+       - reason_chips: 3-4 short, punchy phrases explaining why (e.g. "High Protein", "No Sugar Crash", "Fits Budget").
+    
+    2. rejected_options: List other visible items and why they were skipped.
+       - reason_for_rejection: Short, direct explanation of the trade-off (e.g. "Too much sodium", "Will cause fatigue", "Over budget").
+
+    CONSTRAINTS:
+    - Do NOT count calories.
+    - Be authoritative. Don't be wishy-washy.
+    - If budget is tight, prioritize value/filling options.
+
+    OUTPUT JSON ONLY.
+  `;
+
+  parts.push({ text: prompt });
+
+  try {
+    const response = await ai.models.generateContent({
+      model: model,
+      contents: { parts },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            best_pick: {
+              type: Type.OBJECT,
+              properties: {
+                name: { type: Type.STRING },
+                price_estimate: { type: Type.STRING },
+                match_percentage: { type: Type.INTEGER },
+                reason_chips: { type: Type.ARRAY, items: { type: Type.STRING } }
+              },
+              required: ["name", "match_percentage", "reason_chips"]
+            },
+            rejected_options: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING },
+                  price_estimate: { type: Type.STRING },
+                  reason_for_rejection: { type: Type.STRING },
+                },
+                required: ["name", "reason_for_rejection"]
+              }
+            },
+            pair_with: { type: Type.STRING },
+            confidence: { type: Type.STRING, enum: ["High", "Medium", "Low"] }
+          },
+          required: ["best_pick", "rejected_options", "confidence"]
+        }
+      }
+    });
+
+    if (!response.text) throw new Error("No response");
+    return JSON.parse(response.text) as CanteenAnalysisResult;
+
+  } catch (error) {
+    console.error("Canteen Analysis Error:", error);
+    throw new Error("Failed to pick a meal. Please try again.");
   }
 };
