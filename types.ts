@@ -44,6 +44,7 @@ export interface AnalysisState {
 export interface ImpactMetric {
   label: string;
   trend: 'increase' | 'decrease' | 'neutral';
+  impact_analysis: string;
 }
 
 export interface SimulationResult {
@@ -63,22 +64,42 @@ export type CanteenGoal =
   | 'Balanced & Healthy' 
   | 'Comfort & Variety';
 
-export interface CanteenBestPick {
-  name: string;
-  price_estimate?: string;
-  match_percentage: number;
-  reason_chips: string[];
+export interface DecisionFactors {
+  goal_match: number;       // 0-100
+  budget_fit: number;       // 0-100
+  visual_clarity: number;   // 0-100
 }
 
-export interface RejectedOption {
+export interface RejectedAlternative {
   name: string;
+  reason: string;
   price_estimate?: string;
-  reason_for_rejection: string;
 }
 
 export interface CanteenAnalysisResult {
-  best_pick: CanteenBestPick;
-  rejected_options: RejectedOption[];
-  pair_with?: string;
-  confidence: ConfidenceLevel;
+  final_choice: {
+    name: string;
+    short_justification: string;
+    price_estimate?: string;
+  };
+  decision_factors: DecisionFactors;
+  rejected_alternatives: RejectedAlternative[];
+  confidence_scores: {
+    recommendation: number; // 0-100
+    price: number;          // 0-100
+  };
+  trigger_fallback: boolean; // Indicates if the recommendation is weak/over-budget
+}
+
+// --- Fallback Journey Types ---
+
+export type KitchenAccess = 'Yes' | 'Limited' | 'No';
+export type TimeAvailable = '~10 min' | '~20 min' | 'No rush';
+export type EnergyLevel = 'Low' | 'Okay' | 'High';
+
+export interface CookAtHomeResult {
+  dish_name: string;
+  why_it_fits: string;
+  instructions: string[];
+  substitutions?: string;
 }

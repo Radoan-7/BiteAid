@@ -47,7 +47,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
             <ArrowRight className="relative w-5 h-5 text-slate-300 group-hover:text-emerald-500 group-hover:translate-x-1 transition-all" />
           </button>
 
-          {/* Canteen Picker Card */}
+          {/* Today's Bite Card (formerly Canteen Picker) */}
           <button 
             onClick={() => onNavigate('canteen')}
             className="w-full group bg-white p-6 rounded-3xl shadow-sm border border-slate-200 hover:border-blue-200 hover:shadow-lg hover:shadow-blue-500/5 transition-all text-left flex items-center gap-5 relative overflow-hidden"
@@ -58,8 +58,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
               <Utensils className="w-8 h-8 text-blue-600" />
             </div>
             <div className="relative flex-1">
-              <h3 className="text-lg font-bold text-slate-900 mb-1 group-hover:text-blue-700 transition-colors">Smart Canteen Picker</h3>
-              <p className="text-sm text-slate-500 leading-snug">Compare options and find the best meal before you buy.</p>
+              <h3 className="text-lg font-bold text-slate-900 mb-1 group-hover:text-blue-700 transition-colors">Today’s Bite</h3>
+              <p className="text-sm text-slate-500 leading-snug">One smart pick. Zero overthinking.</p>
             </div>
             <ArrowRight className="relative w-5 h-5 text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
           </button>

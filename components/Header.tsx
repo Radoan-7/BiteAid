@@ -2,7 +2,7 @@ import React from 'react';
 import { Heart, ShieldCheck, Home } from 'lucide-react';
 
 interface HeaderProps {
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   onHome?: () => void;
 }
 
@@ -19,7 +19,7 @@ export const Header: React.FC<HeaderProps> = ({ subtitle = "eat now, fix later",
           </div>
           <div>
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">BiteAid</h1>
-            <p className="text-xs text-slate-500 font-medium">{subtitle}</p>
+            <div className="text-xs text-slate-500 font-medium leading-tight">{subtitle}</div>
           </div>
         </div>
         

@@ -1,5 +1,15 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { AnalysisResult, HealthGoal, SimulationResult, CanteenGoal, CanteenAnalysisResult } from "../types";
+import { 
+  AnalysisResult, 
+  HealthGoal, 
+  SimulationResult, 
+  CanteenGoal, 
+  CanteenAnalysisResult,
+  KitchenAccess,
+  TimeAvailable,
+  EnergyLevel,
+  CookAtHomeResult
+} from "../types";
 
 // Initialize Gemini Client
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -51,7 +61,7 @@ export const analyzeMealImage = async (
 
     - after_effect_timeline: Generate a projected timeline of how this meal might affect the user's body.
       Create exactly 3 checkpoints: "30-60 mins", "2-3 hours", "4-5 hours".
-      - feeling_indicators: 2-3 short, 1-2 word qualitative tags (e.g., "Stable Energy", "Sugar Crash", "Full", "Hungry", "Thirsty").
+      - feeling_indicators: 2-3 VERY SIMPLE, common words (e.g., "Good Energy", "Sleepy", "Full", "Thirsty"). Avoid medical terms.
       - description: A single plain-language sentence explaining the physiological reason (e.g. "Fiber from the veggies slows digestion, keeping you full.").
       - confidence: Certainty level based on food composition.
 
@@ -191,7 +201,6 @@ export const simulateImpact = async (
 ): Promise<SimulationResult> => {
   const model = "gemini-3-flash-preview";
   
-  // We use the JSON context of the meal instead of the image to save bandwidth/latency for this follow-up task
   const prompt = `
     You are a nutritional simulation engine.
     
@@ -205,9 +214,10 @@ export const simulateImpact = async (
     Requirements:
     1. Title: Short status (e.g., "Impact if ${targetItem} is reduced").
     2. Metrics: Provide 3 qualitative indicators (e.g., Glycemic Load, Satiety, Sodium, Energy Crash Risk) and whether they increase/decrease/stay neutral.
-    3. Explanation: A 1-2 sentence plain language reasoning.
-    4. Confidence: How certain is this biological impact?
-    5. Swap: One realistic, easy swap (e.g. for a campus canteen or home fridge).
+    3. Metric Analysis: For EACH metric, provide a specific 1-sentence "impact_analysis" explaining EXACTLY why that metric changes.
+    4. Explanation: A general summary sentence.
+    5. Confidence: How certain is this biological impact?
+    6. Swap: One realistic, easy swap (e.g. for a campus canteen or home fridge).
 
     Output JSON ONLY.
   `;
@@ -228,9 +238,10 @@ export const simulateImpact = async (
                 type: Type.OBJECT,
                 properties: {
                   label: { type: Type.STRING },
-                  trend: { type: Type.STRING, enum: ["increase", "decrease", "neutral"] }
+                  trend: { type: Type.STRING, enum: ["increase", "decrease", "neutral"] },
+                  impact_analysis: { type: Type.STRING }
                 },
-                required: ["label", "trend"]
+                required: ["label", "trend", "impact_analysis"]
               }
             },
             explanation: { type: Type.STRING },
@@ -260,7 +271,6 @@ export const analyzeCanteenSelection = async (
 
   const parts = [];
   
-  // Primary Part: Food Image
   parts.push({
     inlineData: {
       data: foodImageBase64,
@@ -268,7 +278,6 @@ export const analyzeCanteenSelection = async (
     }
   });
 
-  // Secondary Part: Menu Image (if present)
   if (menuImageBase64) {
     parts.push({
       inlineData: {
@@ -278,36 +287,45 @@ export const analyzeCanteenSelection = async (
     });
   }
 
-  // System Instruction Part
   const prompt = `
-    You are BiteAid's Canteen Picker Assistant.
+    You are a structured decision engine for a canteen/cafeteria setting.
+    You are NOT a chatbot. You are a filter.
     
-    CONTEXT:
-    The user is at a canteen or cafeteria.
-    - Image 1: The food display/counter showing available options.
-    - Image 2 (optional): The menu or price board.
-    
-    USER GOAL: "${goal}"
-    USER BUDGET: "${budget || "Flexible/Not specified"}"
+    INPUT DATA:
+    1. Image of food counter (visual evidence of options).
+    2. Image of menu/price list (optional - use for budget checks).
+    3. User Goal: "${goal}"
+    4. User Budget: "${budget ? budget : "No Limit / Not Provided"}"
 
     TASK:
-    Identify the available food options.
-    Be DECISIVE. Select the single absolute BEST option that maximizes the user's goal.
-    
-    OUTPUT REQUIREMENTS:
-    1. best_pick: The winner.
-       - match_percentage: Integer (0-100). How well does this fit the goal?
-       - reason_chips: 3-4 short, punchy phrases explaining why (e.g. "High Protein", "No Sugar Crash", "Fits Budget").
-    
-    2. rejected_options: List other visible items and why they were skipped.
-       - reason_for_rejection: Short, direct explanation of the trade-off (e.g. "Too much sodium", "Will cause fatigue", "Over budget").
+    Analyze available options and select ONE single "Today's Bite" that best fits the goal and budget.
 
-    CONSTRAINTS:
-    - Do NOT count calories.
-    - Be authoritative. Don't be wishy-washy.
-    - If budget is tight, prioritize value/filling options.
+    CRITICAL RULES FOR BUDGET:
+    - If a budget is provided, you MUST compare prices extracted from the menu image.
+    - If ALL options are strictly more expensive than the budget, select the CHEAPEST/BEST RELATIVE option, but you MUST set 'trigger_fallback' to true and 'budget_fit' to 0.
+    - Do NOT fabricate a lower price to make it fit. If it costs 15 and budget is 1, budget_fit is 0.
 
-    OUTPUT JSON ONLY.
+    CRITICAL RULES FOR FALLBACK:
+    - Set 'trigger_fallback' to true if:
+      1. No options fit the budget (Strictly).
+      2. No options reasonably support the goal (e.g. User wants "Healthy" but only "Deep Fried" exists).
+      3. Image quality is too poor to be confident.
+    
+    OUTPUT SCHEMA RULES:
+    - final_choice: The winner.
+      - short_justification: 6-8 words max. Punchy. E.g. "High protein for focus, fits budget perfectly."
+    - decision_factors:
+      - goal_match: 0-100 score.
+      - budget_fit: 0-100 score (100 = fits budget, 0 = clearly over budget).
+      - visual_clarity: 0-100 score.
+    - rejected_alternatives: List 2-3 other visible items.
+      - reason: Brief reason for rejection.
+    - confidence_scores:
+      - recommendation: 0-100.
+      - price: 0-100.
+    - trigger_fallback: boolean.
+
+    Output JSON ONLY.
   `;
 
   parts.push({ text: prompt });
@@ -321,32 +339,47 @@ export const analyzeCanteenSelection = async (
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            best_pick: {
+            final_choice: {
               type: Type.OBJECT,
               properties: {
                 name: { type: Type.STRING },
-                price_estimate: { type: Type.STRING },
-                match_percentage: { type: Type.INTEGER },
-                reason_chips: { type: Type.ARRAY, items: { type: Type.STRING } }
+                short_justification: { type: Type.STRING },
+                price_estimate: { type: Type.STRING }
               },
-              required: ["name", "match_percentage", "reason_chips"]
+              required: ["name", "short_justification"]
             },
-            rejected_options: {
+            decision_factors: {
+              type: Type.OBJECT,
+              properties: {
+                goal_match: { type: Type.INTEGER },
+                budget_fit: { type: Type.INTEGER },
+                visual_clarity: { type: Type.INTEGER }
+              },
+              required: ["goal_match", "budget_fit", "visual_clarity"]
+            },
+            rejected_alternatives: {
               type: Type.ARRAY,
               items: {
                 type: Type.OBJECT,
                 properties: {
                   name: { type: Type.STRING },
-                  price_estimate: { type: Type.STRING },
-                  reason_for_rejection: { type: Type.STRING },
+                  reason: { type: Type.STRING },
+                  price_estimate: { type: Type.STRING }
                 },
-                required: ["name", "reason_for_rejection"]
+                required: ["name", "reason"]
               }
             },
-            pair_with: { type: Type.STRING },
-            confidence: { type: Type.STRING, enum: ["High", "Medium", "Low"] }
+            confidence_scores: {
+              type: Type.OBJECT,
+              properties: {
+                recommendation: { type: Type.INTEGER },
+                price: { type: Type.INTEGER }
+              },
+              required: ["recommendation", "price"]
+            },
+            trigger_fallback: { type: Type.BOOLEAN }
           },
-          required: ["best_pick", "rejected_options", "confidence"]
+          required: ["final_choice", "decision_factors", "rejected_alternatives", "confidence_scores", "trigger_fallback"]
         }
       }
     });
@@ -357,5 +390,66 @@ export const analyzeCanteenSelection = async (
   } catch (error) {
     console.error("Canteen Analysis Error:", error);
     throw new Error("Failed to pick a meal. Please try again.");
+  }
+};
+
+export const generateCookAtHomeIdea = async (
+  goal: CanteenGoal,
+  kitchen: KitchenAccess,
+  time: TimeAvailable,
+  energy: EnergyLevel
+): Promise<CookAtHomeResult> => {
+  const model = "gemini-3-flash-preview";
+
+  const prompt = `
+    You are a student-friendly cooking assistant.
+    User Context:
+    - Goal: ${goal}
+    - Kitchen Access: ${kitchen}
+    - Time Available: ${time}
+    - Energy Level: ${energy}
+
+    Task:
+    Generate ONE single cook-at-home dish idea that fits these constraints perfectly.
+    
+    Constraints:
+    - If Kitchen is "No" or "Limited" (e.g. dorm), suggest no-cook or microwave-only meals.
+    - If Energy is "Low", keep ingredients and steps minimal (assembly only).
+    - Tone: Practical, encouraging, non-judgmental. No nutritional lecturing.
+
+    Output JSON ONLY:
+    {
+      "dish_name": "string",
+      "why_it_fits": "One sentence explaining why it fits their goal/state.",
+      "instructions": ["Step 1", "Step 2", ...],
+      "substitutions": "Optional string: 'Use x if you don't have y'"
+    }
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: model,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            dish_name: { type: Type.STRING },
+            why_it_fits: { type: Type.STRING },
+            instructions: { type: Type.ARRAY, items: { type: Type.STRING } },
+            substitutions: { type: Type.STRING }
+          },
+          required: ["dish_name", "why_it_fits", "instructions"]
+        }
+      }
+    });
+
+    if (!response.text) throw new Error("No response");
+    return JSON.parse(response.text) as CookAtHomeResult;
+
+  } catch (error) {
+    console.error("Cook Fallback Error:", error);
+    throw new Error("Could not generate recipe.");
   }
 };

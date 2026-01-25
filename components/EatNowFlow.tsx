@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Header } from './Header';
 import { UploadZone } from './UploadZone';
 import { GoalSelector } from './GoalSelector';
@@ -20,6 +20,25 @@ export const EatNowFlow: React.FC<EatNowFlowProps> = ({ onHome }) => {
   
   // Track the current analysis ID to handle cancellation/race conditions
   const analysisIdRef = useRef<number>(0);
+  const isMounted = useRef(false);
+
+  // 1. Force instant scroll to top on mount (navigation from Home)
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    isMounted.current = true;
+  }, []);
+
+  // 2. Smooth scroll to top when results appear or are reset
+  useEffect(() => {
+    if (isMounted.current) {
+      // Use a small timeout to ensure DOM update (switching from Upload to Result view)
+      // is fully processed before we try to scroll to the top of it.
+      const timer = setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [result]);
 
   const handleImageSelect = async (file: File) => {
     setIsLoading(true);
@@ -87,7 +106,7 @@ export const EatNowFlow: React.FC<EatNowFlowProps> = ({ onHome }) => {
                 What's on your plate?
               </h2>
               <p className="text-lg text-slate-600 max-w-xl mx-auto">
-                Get instant, non-judgmental guidance. Snap a photo to check hidden risks and get practical tips.
+                Snap a photo to check hidden risks and get practical tips.
               </p>
             </div>
 
