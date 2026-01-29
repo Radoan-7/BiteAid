@@ -11,11 +11,22 @@ export interface ActionableGuidance {
   consider_balancing: ConfidentItem[];
 }
 
+export interface RecoveryTip {
+  text: string;
+  trigger_reason: string;
+  confidence: ConfidenceLevel;
+}
+
 export interface TimelineCheckpoint {
-  time_window: string;
+  time_window: string;      // Display label (e.g. "30 mins")
+  hour_offset: number;      // Numeric value for graph (0.5, 1, 2, etc)
+  energy_score: number;     // 0-100
+  focus_score: number;      // 0-100
+  digestion_score: number;  // 0-100
   feeling_indicators: string[];
   description: string;
   confidence: ConfidenceLevel;
+  recovery_tip?: RecoveryTip; // Optional tip if score is low
 }
 
 export interface AnalysisResult {
@@ -53,6 +64,12 @@ export interface SimulationResult {
   explanation: string;
   explanation_confidence: ConfidenceLevel;
   swap_suggestion: string;
+}
+
+export interface PointExplanation {
+  insight: string;
+  biological_reasoning: string;
+  practical_advice: string;
 }
 
 // --- Smart Canteen Picker Types ---

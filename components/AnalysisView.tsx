@@ -1,7 +1,8 @@
 import React, { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AnalysisResult, ConfidenceLevel, SimulationResult, ConfidentItem, TimelineCheckpoint } from '../types';
-import { simulateImpact } from '../services/geminiService';
+import { AnalysisResult, ConfidenceLevel, SimulationResult, ConfidentItem, TimelineCheckpoint, PointExplanation } from '../types';
+import { simulateImpact, explainTimelinePoint } from '../services/geminiService';
+import { AnalysisGraph } from './AnalysisGraph';
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
 import { 
@@ -22,7 +23,10 @@ import {
   RefreshCw, 
   Clock, 
   Activity, 
-  ChevronDown 
+  ChevronDown,
+  Brain,
+  Zap,
+  Leaf
 } from 'lucide-react';
 
 interface AnalysisViewProps {
@@ -55,26 +59,34 @@ const ImpactBadge: React.FC<{ level: string }> = ({ level }) => {
   );
 };
 
-const ConfidenceIndicator: React.FC<{ level: ConfidenceLevel, tooltip: string, isLight?: boolean }> = ({ level, tooltip, isLight }) => {
-  const dots = {
-    High: [true, true, true],
-    Medium: [true, true, false],
-    Low: [true, false, false],
+// IMPROVED CONFIDENCE INDICATOR
+const ConfidenceIndicator: React.FC<{ level: ConfidenceLevel, tooltip?: string, className?: string }> = ({ level, tooltip, className = "" }) => {
+  const levels = {
+    High: 3,
+    Medium: 2,
+    Low: 1,
   };
+  const count = levels[level] || 0;
 
-  const activeColor = isLight ? 'bg-white' : 'bg-slate-400';
-  const inactiveColor = isLight ? 'bg-white/30' : 'bg-slate-200';
+  // Colors
+  const colors = {
+    High: "bg-emerald-500",
+    Medium: "bg-amber-400",
+    Low: "bg-slate-300",
+  };
+  
+  const baseClass = "w-1 rounded-[1px]";
 
   return (
-    <div className="group relative inline-flex items-center ml-2 cursor-help" title={tooltip}>
-      <div className="flex gap-0.5">
-        {dots[level].map((filled, i) => (
-          <div 
-            key={i} 
-            className={`w-1 h-1 rounded-full ${filled ? activeColor : inactiveColor}`} 
-          />
-        ))}
-      </div>
+    <div 
+      className={`inline-flex items-end gap-[2px] h-3 ml-1.5 align-baseline select-none ${className}`} 
+      title={tooltip || `${level} Confidence`}
+      role="img"
+      aria-label={`${level} Confidence`}
+    >
+       <div className={`${baseClass} ${count >= 1 ? colors[level] : "bg-slate-100"} h-[30%]`}></div>
+       <div className={`${baseClass} ${count >= 2 ? colors[level] : "bg-slate-100"} h-[60%]`}></div>
+       <div className={`${baseClass} ${count >= 3 ? colors[level] : "bg-slate-100"} h-full`}></div>
     </div>
   );
 };
@@ -83,9 +95,10 @@ interface ActionCardProps {
   title: string;
   type: 'do' | 'avoid' | 'balance';
   items: ConfidentItem[];
+  setShowConfidenceModal: (show: boolean) => void;
 }
 
-const ActionCard: React.FC<ActionCardProps> = ({ title, type, items }) => {
+const ActionCard: React.FC<ActionCardProps> = ({ title, type, items, setShowConfidenceModal }) => {
   if (!items || items.length === 0) return null;
 
   const styles = {
@@ -113,31 +126,34 @@ const ActionCard: React.FC<ActionCardProps> = ({ title, type, items }) => {
   };
 
   const style = styles[type];
-  
-  // Strictly limit to top 2 items
   const displayItems = items.slice(0, 2);
 
   return (
     <div 
       className={`
         bg-white rounded-2xl shadow-sm border ${style.border} ${style.bgHover} 
-        transition-all p-5 h-full flex flex-col
+        transition-all p-5 h-full flex flex-col relative
       `}
     >
-      <div className="flex items-center gap-2 mb-4">
-        <div className={`p-2 rounded-lg ${style.iconBg} ${style.iconColor}`}>
-          {style.icon}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <div className={`p-2 rounded-lg ${style.iconBg} ${style.iconColor}`}>
+            {style.icon}
+          </div>
+          <h3 className={`font-bold ${style.iconColor}`}>{title}</h3>
         </div>
-        <h3 className={`font-bold ${style.iconColor}`}>{title}</h3>
+        <button onClick={() => setShowConfidenceModal(true)} className="text-slate-300 hover:text-slate-400" title="What does confidence mean?">
+           <HelpCircle className="w-4 h-4" />
+        </button>
       </div>
       
       <ul className="space-y-3 flex-1">
         {displayItems.map((item, i) => (
-          <li key={i} className="flex items-start gap-3 text-sm text-slate-700">
+          <li key={i} className="flex items-start gap-2.5 text-sm text-slate-700">
             <div className={`w-1.5 h-1.5 rounded-full mt-2 shrink-0 ${style.iconColor.replace('text-', 'bg-')}`}></div>
-            <span className="leading-relaxed">
+            <span className="leading-relaxed flex-1">
               {item.text}
-              <ConfidenceIndicator level={item.confidence} tooltip="Confidence based on visual evidence." />
+              <ConfidenceIndicator level={item.confidence} />
             </span>
           </li>
         ))}
@@ -146,47 +162,23 @@ const ActionCard: React.FC<ActionCardProps> = ({ title, type, items }) => {
   );
 };
 
-const TimelineCard: React.FC<{ point: TimelineCheckpoint }> = ({ point }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  return (
-    <div 
-      onClick={() => setIsExpanded(!isExpanded)}
-      className={`
-        bg-white rounded-xl border border-slate-100 p-4 cursor-pointer transition-all duration-300
-        ${isExpanded ? 'border-blue-300 shadow-md ring-1 ring-blue-500/10' : 'hover:border-blue-200 hover:shadow-sm'}
-      `}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <Clock className="w-3.5 h-3.5 text-blue-500" />
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">{point.time_window}</span>
-        </div>
-        <ChevronDown className={`w-4 h-4 text-slate-300 transition-transform duration-300 ${isExpanded ? 'rotate-180 text-blue-500' : ''}`} />
-      </div>
-      
-      {/* Tags (Always visible) */}
-      <div className="flex flex-wrap gap-1.5">
-        {point.feeling_indicators.map((tag, i) => (
-          <span key={i} className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-wide rounded">
-            {tag}
-          </span>
-        ))}
-      </div>
-      
-      {/* Expandable Description */}
-      <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${isExpanded ? 'grid-rows-[1fr] mt-3' : 'grid-rows-[0fr] mt-0'}`}>
-        <div className="overflow-hidden">
-          <p className="text-sm text-slate-700 leading-relaxed pt-2 border-t border-slate-50">
-            {point.description}
-            <ConfidenceIndicator level={point.confidence} tooltip="Projected physiological effect." />
-          </p>
-        </div>
-      </div>
+const RecoveryTipCard: React.FC<{ tip: NonNullable<TimelineCheckpoint['recovery_tip']>, time: string }> = ({ tip, time }) => (
+  <div className="flex items-start gap-3 p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
+    <div className="p-1.5 bg-white rounded-full shadow-sm text-indigo-600 mt-0.5">
+      <Zap className="w-3 h-3" />
     </div>
-  );
-};
+    <div className="flex-1">
+       <div className="flex items-center justify-between mb-1">
+         <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wide">
+           Recovery @ {time}
+         </span>
+         <ConfidenceIndicator level={tip.confidence} tooltip={`Confidence: ${tip.confidence}`} className="opacity-60" />
+       </div>
+       <p className="text-sm text-indigo-900 font-medium leading-snug">{tip.text}</p>
+       <p className="text-xs text-indigo-600/70 mt-1">Because: {tip.trigger_reason}</p>
+    </div>
+  </div>
+);
 
 export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview, onReset }) => {
   const reportRef = useRef<HTMLDivElement>(null);
@@ -197,6 +189,11 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
   const [simulatingItem, setSimulatingItem] = useState<string | null>(null);
   const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
   const [selectedMetricIndex, setSelectedMetricIndex] = useState<number | null>(null);
+
+  // Explanation State
+  const [explainingPoint, setExplainingPoint] = useState<TimelineCheckpoint | null>(null);
+  const [explanationResult, setExplanationResult] = useState<PointExplanation | null>(null);
+  const [isExplaining, setIsExplaining] = useState(false);
 
   const handleSimulate = async (item: string) => {
     if (simulatingItem) return;
@@ -211,6 +208,23 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
       alert("Failed to simulate impact. Please try again.");
     } finally {
       setSimulatingItem(null);
+    }
+  };
+
+  const handlePointClick = async (point: TimelineCheckpoint) => {
+    setExplainingPoint(point);
+    setExplanationResult(null);
+    setIsExplaining(true);
+    
+    try {
+      const detectedFoods = result.detected_foods.map(f => f.text);
+      const explanation = await explainTimelinePoint(point, detectedFoods);
+      setExplanationResult(explanation);
+    } catch (e) {
+      console.error(e);
+      // Don't alert, just show error in modal if needed or close
+    } finally {
+      setIsExplaining(false);
     }
   };
 
@@ -283,7 +297,10 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
                    
                    {/* Row 1: Detected Items */}
                    <div className="space-y-3">
-                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Detected Items <span className="font-normal normal-case text-slate-300">(Tap to Simulate)</span></span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Detected Items</span>
+                        <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wide bg-emerald-50 px-2 py-0.5 rounded-full">Tap to Simulate</span>
+                      </div>
                       <div className="flex flex-wrap gap-2">
                         {result.detected_foods.map((food, i) => (
                           <button
@@ -291,7 +308,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
                             onClick={() => handleSimulate(food.text)}
                             disabled={!!simulatingItem}
                             className={`
-                              group relative flex items-center px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all
+                              group relative flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-all
                               ${simulatingItem === food.text ? 'bg-emerald-100 text-emerald-800 ring-2 ring-emerald-500 ring-offset-1' : 'bg-slate-50 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 border border-slate-200 hover:border-emerald-200'}
                             `}
                           >
@@ -299,7 +316,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
                               {simulatingItem === food.text ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-emerald-500" />}
                               {food.text}
                             </span>
-                            <ConfidenceIndicator level={food.confidence} tooltip="ID Confidence" />
+                            <ConfidenceIndicator level={food.confidence} tooltip={`ID Confidence: ${food.confidence}`} />
                           </button>
                         ))}
                       </div>
@@ -315,6 +332,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
                               <span key={i} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 text-amber-700 border border-amber-100 rounded-lg text-sm font-medium">
                                 <AlertTriangle className="w-3.5 h-3.5" />
                                 {risk.text}
+                                <ConfidenceIndicator level={risk.confidence} tooltip={`Confidence: ${risk.confidence}`} className="opacity-60" />
                               </span>
                             ))}
                           </div>
@@ -341,23 +359,40 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
 
            {/* Updated grid to use 3 columns on medium screens */}
            <div className="grid md:grid-cols-3 gap-6 items-start">
-              <ActionCard type="do" title="Do This Now" items={result.actionable_guidance.do_this} />
-              <ActionCard type="avoid" title="Avoid / Limit" items={result.actionable_guidance.avoid_this} />
-              <ActionCard type="balance" title="Balance It Later" items={result.actionable_guidance.consider_balancing} />
+              <ActionCard type="do" title="Do This Now" items={result.actionable_guidance.do_this} setShowConfidenceModal={setShowConfidenceModal} />
+              <ActionCard type="avoid" title="Avoid / Limit" items={result.actionable_guidance.avoid_this} setShowConfidenceModal={setShowConfidenceModal} />
+              <ActionCard type="balance" title="Balance It Later" items={result.actionable_guidance.consider_balancing} setShowConfidenceModal={setShowConfidenceModal} />
            </div>
         </div>
 
-        {/* 3. Timeline Section (Projected Effects) - Moved Below Guidance */}
+        {/* 3. Timeline Section (Projected Effects) - Enhanced with Graph */}
         {result.after_effect_timeline && result.after_effect_timeline.length > 0 && (
-           <div className="space-y-4">
-              <div className="flex items-center gap-2 px-1">
-                 <Activity className="w-5 h-5 text-blue-500" />
-                 <h3 className="font-bold text-slate-900">Projected After-Effects</h3>
+           <div className="space-y-6">
+              <div className="flex items-center justify-between px-1">
+                 <div className="flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-blue-500" />
+                    <h3 className="font-bold text-slate-900">Projected Bio-Impact</h3>
+                 </div>
+                 <span className="text-xs font-medium text-slate-400 bg-slate-50 px-2 py-1 rounded">
+                   AI Projection
+                 </span>
               </div>
+              
+              {/* Interactive Graph */}
+              <AnalysisGraph 
+                data={result.after_effect_timeline} 
+                onPointClick={handlePointClick}
+              />
+
+              {/* Recovery Suggestions Row */}
               <div className="grid md:grid-cols-3 gap-4">
-                 {result.after_effect_timeline.map((point, i) => (
-                    <TimelineCard key={i} point={point} />
-                 ))}
+                 {result.after_effect_timeline
+                    .filter(p => p.recovery_tip)
+                    .slice(0, 3) // Limit to 3 max to preserve layout
+                    .map((point, i) => (
+                      point.recovery_tip && <RecoveryTipCard key={i} tip={point.recovery_tip} time={point.time_window} />
+                    ))
+                 }
               </div>
            </div>
         )}
@@ -382,6 +417,75 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
           Analyze Another Meal
         </button>
       </div>
+
+      {/* Explanation Modal (Extended Thinking) */}
+      {explainingPoint && createPortal(
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 h-[100dvh] w-screen">
+           {/* High Intensity Blur Backdrop */}
+           <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-3xl transition-opacity" onClick={() => setExplainingPoint(null)} />
+
+           <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden relative animate-in zoom-in-95 duration-300 z-10 m-auto">
+              
+              {/* Header */}
+              <div className="p-6 pb-2 border-b border-slate-100 flex justify-between items-start bg-slate-50/50">
+                 <div>
+                    <h3 className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-1 flex items-center gap-1">
+                       <Brain className="w-3 h-3" /> Quick Insight
+                    </h3>
+                    <h2 className="text-xl font-bold text-slate-900">
+                       T+{explainingPoint.hour_offset}h Check
+                    </h2>
+                 </div>
+                 <button onClick={() => setExplainingPoint(null)} className="p-1 text-slate-400 hover:text-slate-600">
+                    <X className="w-5 h-5" />
+                 </button>
+              </div>
+
+              <div className="p-6 min-h-[160px]">
+                 {isExplaining || !explanationResult ? (
+                    <div className="flex flex-col items-center justify-center space-y-4 py-4">
+                       <div className="relative">
+                          <div className="absolute inset-0 bg-blue-100 rounded-full animate-ping opacity-75"></div>
+                          <Brain className="w-8 h-8 text-blue-600 relative z-10 animate-pulse" />
+                       </div>
+                       <p className="text-sm font-medium text-slate-500 animate-pulse">Thinking...</p>
+                    </div>
+                 ) : (
+                    <div className="space-y-5">
+                       {/* Insight */}
+                       <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl">
+                          <p className="text-indigo-900 font-bold text-lg leading-tight text-center">
+                             "{explanationResult.insight}"
+                          </p>
+                       </div>
+
+                       {/* Reasoning */}
+                       <div className="space-y-1">
+                          <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                             Why?
+                          </h4>
+                          <p className="text-sm text-slate-600 leading-relaxed">
+                             {explanationResult.biological_reasoning}
+                          </p>
+                       </div>
+
+                       {/* Advice */}
+                       <div className="space-y-1">
+                          <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                             Quick Fix
+                          </h4>
+                          <div className="flex items-center gap-3 text-sm font-medium text-slate-800 bg-emerald-50 border border-emerald-100 p-3 rounded-lg">
+                             <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                             {explanationResult.practical_advice}
+                          </div>
+                       </div>
+                    </div>
+                 )}
+              </div>
+           </div>
+        </div>,
+        document.body
+      )}
 
       {/* Impact Simulation Panel (Centered Modal via Portal) */}
       {simulationResult && createPortal(
@@ -495,12 +599,28 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
               <div className="bg-emerald-100 p-2 rounded-full">
                 <HelpCircle className="w-5 h-5 text-emerald-600" />
               </div>
-              <h3 className="text-lg font-bold text-slate-900">How BiteAid Uses Confidence</h3>
+              <h3 className="text-lg font-bold text-slate-900">Understanding Confidence</h3>
             </div>
-            <p className="text-sm text-slate-600 leading-relaxed">
-              BiteAid analyzes food using visual cues and general nutrition knowledge. Confidence indicators show how certain the system is about each insight, helping you decide what to trust and what to treat as guidance.
+            <p className="text-sm text-slate-600 leading-relaxed mb-6">
+              BiteAid uses visual AI to estimate confidence. Look for the signal bars next to items:
             </p>
-            <div className="mt-6 flex justify-end">
+            
+            <div className="space-y-3 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
+               <div className="flex items-center gap-3">
+                  <ConfidenceIndicator level="High" />
+                  <span className="text-sm text-slate-700"><strong>High Confidence:</strong> Clear visual evidence.</span>
+               </div>
+               <div className="flex items-center gap-3">
+                  <ConfidenceIndicator level="Medium" />
+                  <span className="text-sm text-slate-700"><strong>Medium Confidence:</strong> Likely, based on context.</span>
+               </div>
+               <div className="flex items-center gap-3">
+                  <ConfidenceIndicator level="Low" />
+                  <span className="text-sm text-slate-700"><strong>Low Confidence:</strong> Best guess, details unclear.</span>
+               </div>
+            </div>
+
+            <div className="flex justify-end">
               <button 
                 onClick={() => setShowConfidenceModal(false)}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-lg transition-colors"

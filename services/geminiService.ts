@@ -8,7 +8,9 @@ import {
   KitchenAccess,
   TimeAvailable,
   EnergyLevel,
-  CookAtHomeResult
+  CookAtHomeResult,
+  PointExplanation,
+  TimelineCheckpoint
 } from "../types";
 
 // Initialize Gemini Client
@@ -35,7 +37,8 @@ export const analyzeMealImage = async (
   goal: HealthGoal
 ): Promise<AnalysisResult> => {
   
-  const model = "gemini-3-flash-preview";
+  // Upgrade to Pro for Extended Thinking
+  const model = "gemini-3-pro-preview";
 
   const systemPrompt = `
     You are BiteAid, a supportive, privacy-first nutrition assistant. 
@@ -54,21 +57,20 @@ export const analyzeMealImage = async (
     - health_impact_level: "Low" (Healthy/Safe), "Moderate" (Okay occasionally), "High" (Potential adverse effects if consumed often/large quantity).
     - nutritional_risks: E.g., "High Sodium", "Added Sugar", "Low Fiber", "Deep Fried", "Blood Sugar Spike Risk". Provide confidence level.
     
-    - actionable_guidance: Provide 2-3 distinct, specific, and practical tips per category. Include confidence level.
-      - "do_this": Immediate positive actions during this meal. 
-      - "avoid_this": What to skip, limit, or remove *right now*. 
-      - "consider_balancing": Post-meal or next-meal adjustments.
+    - actionable_guidance: Provide 2-3 distinct, specific, and practical tips per category.
+      - "do_this": Immediate positive actions. 
+      - "avoid_this": What to skip or remove *right now*. 
+      - "consider_balancing": Post-meal adjustments.
 
-    - after_effect_timeline: Generate a projected timeline of how this meal might affect the user's body.
-      Create exactly 3 checkpoints: "30-60 mins", "2-3 hours", "4-5 hours".
-      - feeling_indicators: 2-3 VERY SIMPLE, common words (e.g., "Good Energy", "Sleepy", "Full", "Thirsty"). Avoid medical terms.
-      - description: A single plain-language sentence explaining the physiological reason (e.g. "Fiber from the veggies slows digestion, keeping you full.").
-      - confidence: Certainty level based on food composition.
-
-    Confidence Level Guidelines:
-    - High: Clearly visible, scientifically well-established, or direct observation.
-    - Medium: Likely true based on context, common preparation methods, or general nutritional patterns.
-    - Low: Educated guess, depends heavily on unknown ingredients (e.g., specific oils used), or less clear visual.
+    - after_effect_timeline: Generate a granular 6-point timeline (0.5h, 1h, 2h, 3h, 4h, 6h).
+      For each point, provide:
+      - hour_offset: The numeric hour (e.g., 0.5, 1, 2).
+      - scores (0-100): Estimate 'energy_score', 'focus_score', 'digestion_score'.
+        - 100 = Peak/Perfect, 0 = Crash/Distress.
+        - Curves should reflect biological reality (e.g., blood sugar spikes then drops).
+      - feeling_indicators: 1-2 words (e.g., "Alert", "Heavy").
+      - description: 1 sentence on the physiology.
+      - recovery_tip: IF scores drop below 60, provide a specific fix (e.g., "Drink water", "Walk") and a confidence level ('High', 'Medium', 'Low').
 
     - brief_supportive_comment: A 1-sentence non-judgmental observation.
   `;
@@ -90,6 +92,8 @@ export const analyzeMealImage = async (
         ]
       },
       config: {
+        // Enable Extended Thinking
+        thinkingConfig: { thinkingBudget: 2048 }, 
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -165,14 +169,27 @@ export const analyzeMealImage = async (
                 type: Type.OBJECT,
                 properties: {
                   time_window: { type: Type.STRING },
+                  hour_offset: { type: Type.NUMBER },
+                  energy_score: { type: Type.INTEGER },
+                  focus_score: { type: Type.INTEGER },
+                  digestion_score: { type: Type.INTEGER },
                   feeling_indicators: {
                     type: Type.ARRAY,
                     items: { type: Type.STRING }
                   },
                   description: { type: Type.STRING },
-                  confidence: { type: Type.STRING, enum: ["High", "Medium", "Low"] }
+                  confidence: { type: Type.STRING, enum: ["High", "Medium", "Low"] },
+                  recovery_tip: {
+                    type: Type.OBJECT,
+                    properties: {
+                      text: { type: Type.STRING },
+                      trigger_reason: { type: Type.STRING },
+                      confidence: { type: Type.STRING, enum: ["High", "Medium", "Low"] }
+                    },
+                    required: ["text", "trigger_reason", "confidence"]
+                  }
                 },
-                required: ["time_window", "feeling_indicators", "description", "confidence"]
+                required: ["time_window", "hour_offset", "energy_score", "focus_score", "digestion_score", "feeling_indicators", "description", "confidence"]
               }
             },
             brief_supportive_comment: { type: Type.STRING }
@@ -192,6 +209,65 @@ export const analyzeMealImage = async (
   } catch (error) {
     console.error("Gemini Analysis Error:", error);
     throw new Error("Failed to analyze image. Please try again.");
+  }
+};
+
+export const explainTimelinePoint = async (
+  checkpoint: TimelineCheckpoint,
+  detectedFoods: string[]
+): Promise<PointExplanation> => {
+  const model = "gemini-3-pro-preview";
+
+  const prompt = `
+    You are a friendly nutrition buddy explaining things to a 12-year-old.
+    
+    Context:
+    User ate: ${detectedFoods.join(', ')}.
+    Time passed: ${checkpoint.hour_offset} hours.
+    State: Energy ${checkpoint.energy_score}/100, Focus ${checkpoint.focus_score}/100.
+
+    Task:
+    Explain WHY they feel this way right now. 
+    
+    CRITICAL RULES:
+    1. EXTREMELY SIMPLE WORDS. No medical jargon (like "glycemic index", "insulin spike"). Use words like "sugar rush", "crash", "fuel".
+    2. VERY SHORT. 
+    - "insight": Max 8 words. Punchy summary.
+    - "biological_reasoning": Max 2 short sentences. Simple cause and effect.
+    - "practical_advice": 1 simple action.
+
+    Output JSON ONLY:
+    {
+      "insight": "Sugar crash starting now.",
+      "biological_reasoning": "The quick energy from the bread is gone, making you tired.",
+      "practical_advice": "Drink a glass of water."
+    }
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: model,
+      contents: prompt,
+      config: {
+        thinkingConfig: { thinkingBudget: 1024 }, // Enable thinking for reasoning
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            insight: { type: Type.STRING },
+            biological_reasoning: { type: Type.STRING },
+            practical_advice: { type: Type.STRING }
+          },
+          required: ["insight", "biological_reasoning", "practical_advice"]
+        }
+      }
+    });
+
+    if (!response.text) throw new Error("No explanation generated");
+    return JSON.parse(response.text) as PointExplanation;
+  } catch (error) {
+    console.error("Explanation Error:", error);
+    throw new Error("Could not explain point.");
   }
 };
 

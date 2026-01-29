@@ -111,16 +111,16 @@ export const EatNowFlow: React.FC<EatNowFlowProps> = ({ onHome }) => {
             </div>
 
             <div className="space-y-8 bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
-              <GoalSelector 
-                selectedGoal={currentGoal} 
-                onSelect={setCurrentGoal} 
+              <UploadZone 
+                onImageSelected={handleImageSelect} 
+                isLoading={isLoading} 
+                onCancel={handleCancelAnalysis}
               />
               <div className="border-t border-slate-100 pt-8">
-                 <UploadZone 
-                    onImageSelected={handleImageSelect} 
-                    isLoading={isLoading} 
-                    onCancel={handleCancelAnalysis}
-                 />
+                <GoalSelector 
+                  selectedGoal={currentGoal} 
+                  onSelect={setCurrentGoal} 
+                />
               </div>
             </div>
 
