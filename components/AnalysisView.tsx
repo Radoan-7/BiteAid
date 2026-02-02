@@ -299,7 +299,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
                    <div className="space-y-3">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Detected Items</span>
-                        <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wide bg-emerald-50 px-2 py-0.5 rounded-full">Tap to Simulate</span>
+                        <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wide bg-emerald-50 px-2 py-0.5 rounded-full">(Tap to Simulate)</span>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {result.detected_foods.map((food, i) => (

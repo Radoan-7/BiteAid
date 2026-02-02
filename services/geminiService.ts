@@ -4,13 +4,15 @@ import {
   HealthGoal, 
   SimulationResult, 
   CanteenGoal, 
-  CanteenAnalysisResult,
   KitchenAccess,
   TimeAvailable,
-  EnergyLevel,
+  EnergyLevel, 
   CookAtHomeResult,
   PointExplanation,
-  TimelineCheckpoint
+  TimelineCheckpoint,
+  LiveFrameResult,
+  FinalCanteenDecision,
+  ScannedItem
 } from "../types";
 
 // Initialize Gemini Client
@@ -337,73 +339,148 @@ export const simulateImpact = async (
   }
 };
 
-export const analyzeCanteenSelection = async (
-  foodImageBase64: string,
-  menuImageBase64: string | null,
-  goal: CanteenGoal,
-  budget: string
-): Promise<CanteenAnalysisResult> => {
-  const model = "gemini-3-flash-preview";
+// --- NEW LIVE CANTEEN FUNCTIONS ---
 
-  const parts = [];
-  
-  parts.push({
-    inlineData: {
-      data: foodImageBase64,
-      mimeType: "image/jpeg" 
-    }
-  });
-
-  if (menuImageBase64) {
-    parts.push({
-      inlineData: {
-        data: menuImageBase64,
-        mimeType: "image/jpeg"
-      }
-    });
-  }
+export const analyzeLiveFrame = async (
+  base64Image: string,
+  goal: CanteenGoal
+): Promise<LiveFrameResult> => {
+  const model = "gemini-3-flash-preview"; // Use Flash for speed
 
   const prompt = `
-    You are a structured decision engine for a canteen/cafeteria setting.
-    You are NOT a chatbot. You are a filter.
+    You are a real-time canteen scanner.
+    Goal: "${goal}".
     
-    INPUT DATA:
-    1. Image of food counter (visual evidence of options).
-    2. Image of menu/price list (optional - use for budget checks).
-    3. User Goal: "${goal}"
-    4. User Budget: "${budget ? budget : "No Limit / Not Provided"}"
-
-    TASK:
-    Analyze available options and select ONE single "Today's Bite" that best fits the goal and budget.
-
-    CRITICAL RULES FOR BUDGET:
-    - If a budget is provided, you MUST compare prices extracted from the menu image.
-    - If ALL options are strictly more expensive than the budget, select the CHEAPEST/BEST RELATIVE option, but you MUST set 'trigger_fallback' to true and 'budget_fit' to 0.
-    - Do NOT fabricate a lower price to make it fit. If it costs 15 and budget is 1, budget_fit is 0.
-
-    CRITICAL RULES FOR FALLBACK:
-    - Set 'trigger_fallback' to true if:
-      1. No options fit the budget (Strictly).
-      2. No options reasonably support the goal (e.g. User wants "Healthy" but only "Deep Fried" exists).
-      3. Image quality is too poor to be confident.
-    
-    OUTPUT SCHEMA RULES:
-    - final_choice: The winner.
-      - short_justification: 6-8 words max. Punchy. E.g. "High protein for focus, fits budget perfectly."
-    - decision_factors:
-      - goal_match: 0-100 score.
-      - budget_fit: 0-100 score (100 = fits budget, 0 = clearly over budget).
-      - visual_clarity: 0-100 score.
-    - rejected_alternatives: List 2-3 other visible items.
-      - reason: Brief reason for rejection.
-    - confidence_scores:
-      - recommendation: 0-100.
-      - price: 0-100.
-    - trigger_fallback: boolean.
+    Task:
+    1. Identify all food/drink items in this frame.
+    2. Score them 1-5 stars based on the goal.
+    3. Assign an emoji: 🟢 (Good fit), 🟡 (Okay), 🔴 (Avoid/Poor fit).
+    4. Categorize: 'Meal', 'Snack', 'Drink', 'Packaged'.
+    5. Look for price tags/currency symbols ($, ₹, €, Tk).
+    6. Provide a short feedback message to guide the user (e.g. "Pan right", "Hold still", "Good salad options").
+    7. Provide a confidence level ('High', 'Medium', 'Low') for the identification.
 
     Output JSON ONLY.
   `;
 
+  try {
+    const response = await ai.models.generateContent({
+      model: model,
+      contents: {
+        parts: [
+          { inlineData: { data: base64Image, mimeType: "image/jpeg" } },
+          { text: prompt }
+        ]
+      },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            items: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING },
+                  description: { type: Type.STRING },
+                  score: { type: Type.INTEGER },
+                  emoji: { type: Type.STRING },
+                  category: { type: Type.STRING, enum: ['Meal', 'Snack', 'Drink', 'Packaged', 'Other'] },
+                  price_estimate: { type: Type.STRING },
+                  confidence: { type: Type.STRING, enum: ["High", "Medium", "Low"] }
+                },
+                required: ["name", "score", "emoji", "category", "confidence"]
+              }
+            },
+            detected_currency: { type: Type.STRING },
+            feedback_message: { type: Type.STRING }
+          },
+          required: ["items", "feedback_message"]
+        }
+      }
+    });
+
+    if (!response.text) throw new Error("No response");
+    
+    // Post-process to add IDs and seen_count for client-side tracking
+    const rawResult = JSON.parse(response.text);
+    return {
+      ...rawResult,
+      items: rawResult.items.map((item: any) => ({
+        ...item,
+        id: item.name.toLowerCase().replace(/\s+/g, '-'),
+        seen_count: 1
+      }))
+    };
+
+  } catch (error: any) {
+    // Check for Rate Limits (429) in various formats
+    const isRateLimit = 
+      error.status === 429 || 
+      error.code === 429 || 
+      (error.message && (error.message.includes("429") || error.message.includes("quota"))) ||
+      (error.toString() && error.toString().includes("429"));
+
+    if (isRateLimit) {
+       console.warn("Gemini Rate Limit Hit. Backing off.");
+       return { items: [], feedback_message: "Cooling down... (Rate Limit)" };
+    }
+
+    console.error("Live Frame Analysis Error:", error);
+    // Return empty result on other errors to prevent app crash loop
+    return { items: [], feedback_message: "Scanning..." };
+  }
+};
+
+export const makeFinalCanteenDecision = async (
+  scannedItems: ScannedItem[],
+  menuImageBase64: string | null,
+  goal: CanteenGoal,
+  budget: string,
+  userCurrency: string
+): Promise<FinalCanteenDecision> => {
+  const model = "gemini-3-flash-preview";
+
+  const parts = [];
+  
+  // Create a text summary of all scanned items
+  const itemsContext = scannedItems.map(i => 
+    `- ${i.name} (${i.category}): ${i.emoji} Score ${i.score}/5. Price: ${i.price_estimate || 'Unknown'}`
+  ).join('\n');
+
+  const prompt = `
+    You are the "Today's Bite" decision engine.
+    
+    User Context:
+    - Goal: "${goal}"
+    - User's Currency: "${userCurrency}" (CRITICAL: All price estimations must use this currency)
+    - Budget: "${budget || "No strict limit"}"
+    - Scanned Items History: 
+    ${itemsContext}
+
+    ${menuImageBase64 ? "A menu image is also provided for price verification." : "No separate menu image provided. Estimate prices based on the item type and User's Currency context."}
+
+    Task:
+    1. Identify the BEST SELECTION. This can be:
+       - An OPTIMIZED PAIR/COMBO (e.g., Main + Drink, Snack + Fruit) if the combination provides better balance for the goal AND fits within the budget.
+       - A SINGLE ITEM if it's the strongest standalone option or if budget is tight.
+    2. If a pair is chosen:
+       - Set 'final_choice.type' to 'Combo'.
+       - Set 'final_choice.name' to "Item A + Item B".
+       - Set 'final_choice.price' to the combined total (Formatted with ${userCurrency}).
+    3. If only ONE item was detected or suitable:
+       - Set 'final_choice.type' to 'Single'.
+       - IMPORTANT: Set 'single_option_note' to "No other suitable options found."
+    4. Detect currency from input data (should match User's Currency).
+    5. List rejected alternatives.
+
+    Output JSON ONLY.
+  `;
+
+  if (menuImageBase64) {
+    parts.push({ inlineData: { data: menuImageBase64, mimeType: "image/jpeg" } });
+  }
   parts.push({ text: prompt });
 
   try {
@@ -419,20 +496,15 @@ export const analyzeCanteenSelection = async (
               type: Type.OBJECT,
               properties: {
                 name: { type: Type.STRING },
-                short_justification: { type: Type.STRING },
-                price_estimate: { type: Type.STRING }
+                description: { type: Type.STRING },
+                price: { type: Type.STRING },
+                emoji: { type: Type.STRING },
+                type: { type: Type.STRING, enum: ['Single', 'Combo'] }
               },
-              required: ["name", "short_justification"]
+              required: ["name", "description", "price", "emoji", "type"]
             },
-            decision_factors: {
-              type: Type.OBJECT,
-              properties: {
-                goal_match: { type: Type.INTEGER },
-                budget_fit: { type: Type.INTEGER },
-                visual_clarity: { type: Type.INTEGER }
-              },
-              required: ["goal_match", "budget_fit", "visual_clarity"]
-            },
+            reasoning: { type: Type.STRING },
+            nutrition_highlights: { type: Type.ARRAY, items: { type: Type.STRING } },
             rejected_alternatives: {
               type: Type.ARRAY,
               items: {
@@ -445,27 +517,20 @@ export const analyzeCanteenSelection = async (
                 required: ["name", "reason"]
               }
             },
-            confidence_scores: {
-              type: Type.OBJECT,
-              properties: {
-                recommendation: { type: Type.INTEGER },
-                price: { type: Type.INTEGER }
-              },
-              required: ["recommendation", "price"]
-            },
-            trigger_fallback: { type: Type.BOOLEAN }
+            detected_currency: { type: Type.STRING },
+            single_option_note: { type: Type.STRING }
           },
-          required: ["final_choice", "decision_factors", "rejected_alternatives", "confidence_scores", "trigger_fallback"]
+          required: ["final_choice", "reasoning", "rejected_alternatives", "detected_currency"]
         }
       }
     });
 
-    if (!response.text) throw new Error("No response");
-    return JSON.parse(response.text) as CanteenAnalysisResult;
+    if (!response.text) throw new Error("No decision made");
+    return JSON.parse(response.text) as FinalCanteenDecision;
 
   } catch (error) {
-    console.error("Canteen Analysis Error:", error);
-    throw new Error("Failed to pick a meal. Please try again.");
+    console.error("Final Decision Error:", error);
+    throw new Error("Failed to make a final decision.");
   }
 };
 
@@ -473,7 +538,8 @@ export const generateCookAtHomeIdea = async (
   goal: CanteenGoal,
   kitchen: KitchenAccess,
   time: TimeAvailable,
-  energy: EnergyLevel
+  energy: EnergyLevel,
+  ingredients: string
 ): Promise<CookAtHomeResult> => {
   const model = "gemini-3-flash-preview";
 
@@ -484,10 +550,17 @@ export const generateCookAtHomeIdea = async (
     - Kitchen Access: ${kitchen}
     - Time Available: ${time}
     - Energy Level: ${energy}
+    - User's Exact Ingredients: "${ingredients ? ingredients : 'None provided'}"
 
     Task:
-    Generate ONE single cook-at-home dish idea that fits these constraints perfectly.
+    Generate ONE single cook-at-home dish idea based STRICTLY on the "User's Exact Ingredients".
     
+    CRITICAL INGREDIENT RULES:
+    1. Do NOT include any main ingredients that are not listed in "User's Exact Ingredients".
+    2. You CAN assume basic seasonings (Salt, Pepper, Water, Oil/Butter) are available.
+    3. If the user only provides one item (e.g. "Potato"), give a recipe for just that item (e.g. "Microwave Baked Potato"). Do NOT add cheese, sour cream, or bacon unless listed.
+    4. If no ingredients are provided, suggest a very simple "survival meal" assuming basic staples but clearly state what is needed.
+
     Constraints:
     - If Kitchen is "No" or "Limited" (e.g. dorm), suggest no-cook or microwave-only meals.
     - If Energy is "Low", keep ingredients and steps minimal (assembly only).
@@ -498,7 +571,7 @@ export const generateCookAtHomeIdea = async (
       "dish_name": "string",
       "why_it_fits": "One sentence explaining why it fits their goal/state.",
       "instructions": ["Step 1", "Step 2", ...],
-      "substitutions": "Optional string: 'Use x if you don't have y'"
+      "substitutions": "Optional string: 'If you have X, you could add it.'"
     }
   `;
 
