@@ -12,7 +12,8 @@ import {
   TimelineCheckpoint,
   LiveFrameResult,
   FinalCanteenDecision,
-  ScannedItem
+  ScannedItem,
+  MissionBrief
 } from "../types";
 
 // Initialize Gemini Client
@@ -336,6 +337,50 @@ export const simulateImpact = async (
   } catch (error) {
     console.error("Simulation Error:", error);
     throw new Error("Could not simulate impact.");
+  }
+};
+
+export const getMissionBrief = async (goal: CanteenGoal): Promise<MissionBrief> => {
+  const model = "gemini-3-flash-preview";
+  const prompt = `
+    Generate a short 2-part scanning checklist for a user in a food canteen.
+    Goal: "${goal}"
+
+    Output JSON ONLY:
+    {
+      "seek": ["2-3 short visual items/keywords to look for"],
+      "avoid": ["2-3 short visual items/keywords to avoid"]
+    }
+    Keep items VERY short (max 2 words each, e.g. "Grilled Chicken", "Creamy Sauce").
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: model,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            seek: { type: Type.ARRAY, items: { type: Type.STRING } },
+            avoid: { type: Type.ARRAY, items: { type: Type.STRING } }
+          },
+          required: ["seek", "avoid"]
+        }
+      }
+    });
+
+    if (!response.text) throw new Error("No brief");
+    return JSON.parse(response.text) as MissionBrief;
+
+  } catch (e) {
+    console.warn("Mission Brief Error", e);
+    // Fallback if AI fails to prevent UI breakage
+    return {
+      seek: ["Healthy Options", "Fresh Food"],
+      avoid: ["Greasy Food", "Heavy Items"]
+    };
   }
 };
 

@@ -38,7 +38,8 @@ import {
   MicOff,
   ChefHat,
   Layers,
-  Globe
+  Globe,
+  Check
 } from 'lucide-react';
 
 interface SmartCanteenPickerProps {
@@ -86,6 +87,9 @@ export const SmartCanteenPicker: React.FC<SmartCanteenPickerProps> = ({ onHome }
   const [fallbackEnergy, setFallbackEnergy] = useState<EnergyLevel | null>(null);
   const [fallbackResult, setFallbackResult] = useState<CookAtHomeResult | null>(null);
   const [isGeneratingFallback, setIsGeneratingFallback] = useState(false);
+  
+  // Fallback Interactive State
+  const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   
   // New Fallback Ingredient State
   const [userIngredients, setUserIngredients] = useState('');
@@ -187,6 +191,7 @@ export const SmartCanteenPicker: React.FC<SmartCanteenPickerProps> = ({ onHome }
   const handleGenerateFallback = async () => {
     if (!goal) return;
     setIsGeneratingFallback(true);
+    setCompletedSteps(new Set()); // Reset progress
     try {
       const k = fallbackKitchen || 'Limited';
       const t = fallbackTime || '~10 min';
@@ -212,6 +217,7 @@ export const SmartCanteenPicker: React.FC<SmartCanteenPickerProps> = ({ onHome }
     setShowDetails(false);
     setShowFallbackQuestions(false);
     setFallbackResult(null);
+    setCompletedSteps(new Set());
     setUserIngredients('');
     setSelectedCurrency('USD');
   };
@@ -478,23 +484,92 @@ export const SmartCanteenPicker: React.FC<SmartCanteenPickerProps> = ({ onHome }
            <div className="mt-8 pt-8 border-t border-slate-200">
              {fallbackResult ? (
                 <div className="bg-white rounded-3xl p-6 border-2 border-slate-100 shadow-xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-                   <div className="flex items-center gap-2 mb-4 text-amber-600">
-                     <ChefHat className="w-5 h-5" />
-                     <h3 className="font-bold text-lg">Home Alternative</h3>
+                   
+                   {/* Progress Header */}
+                   <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2 text-amber-600">
+                         <ChefHat className="w-5 h-5" />
+                         <h3 className="font-bold text-lg">Home Chef Mode</h3>
+                      </div>
+                      <span className={`text-xs font-bold ${completedSteps.size === fallbackResult.instructions.length ? 'text-emerald-600' : 'text-blue-500'}`}>
+                         {completedSteps.size === fallbackResult.instructions.length ? 'Ready to Eat!' : `Step ${completedSteps.size} of ${fallbackResult.instructions.length}`}
+                      </span>
                    </div>
+
+                   {/* Progress Bar */}
+                   <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden mb-6">
+                      <div 
+                        className={`h-full transition-all duration-500 ease-out ${completedSteps.size === fallbackResult.instructions.length ? 'bg-emerald-500' : 'bg-blue-500'}`}
+                        style={{ width: `${Math.round((completedSteps.size / fallbackResult.instructions.length) * 100)}%` }}
+                      />
+                   </div>
+
                    <h4 className="text-xl font-bold text-slate-900 mb-2">{fallbackResult.dish_name}</h4>
                    <p className="text-slate-600 text-sm italic mb-6">"{fallbackResult.why_it_fits}"</p>
-                   <div className="space-y-2">
-                      {fallbackResult.instructions.map((step, i) => (
-                        <div key={i} className="flex gap-3 text-sm text-slate-700">
-                          <span className="font-bold text-amber-500 shrink-0">{i+1}.</span>
-                          <p>{step}</p>
-                        </div>
-                      ))}
+                   
+                   {/* Interactive Steps */}
+                   <div className="space-y-3">
+                      {fallbackResult.instructions.map((step, i) => {
+                        const isDone = completedSteps.has(i);
+                        const nextStepIndex = fallbackResult.instructions.findIndex((_, idx) => !completedSteps.has(idx));
+                        const isNext = !isDone && (nextStepIndex === -1 || i === nextStepIndex);
+                        
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => {
+                               const next = new Set(completedSteps);
+                               if (next.has(i)) next.delete(i);
+                               else next.add(i);
+                               setCompletedSteps(next);
+                            }}
+                            className={`
+                               w-full text-left p-4 rounded-xl border-2 transition-all duration-300 flex items-start gap-3 relative
+                               ${isDone 
+                                 ? 'bg-emerald-50 border-emerald-100 opacity-70' 
+                                 : isNext 
+                                   ? 'bg-white border-blue-400 shadow-md ring-4 ring-blue-50/50 scale-[1.02] z-10' 
+                                   : 'bg-white border-slate-100 text-slate-500 hover:border-slate-200'
+                               }
+                            `}
+                          >
+                             <div className={`
+                                w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 transition-colors
+                                ${isDone ? 'bg-emerald-500 text-white' : isNext ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-400'}
+                             `}>
+                                {isDone ? <Check className="w-3.5 h-3.5" /> : i + 1}
+                             </div>
+                             <p className={`text-sm leading-relaxed ${isDone ? 'line-through text-slate-400' : isNext ? 'font-medium text-slate-800' : ''}`}>
+                                {step}
+                             </p>
+                          </button>
+                        );
+                      })}
                    </div>
+
+                   {/* Completion Action */}
+                   {completedSteps.size === fallbackResult.instructions.length && (
+                      <div className="mt-8 animate-in zoom-in slide-in-from-bottom-2 duration-300">
+                         <button 
+                           onClick={onHome}
+                           className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/30 transition-all flex items-center justify-center gap-2 group"
+                         >
+                           <Camera className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                           Analyze this meal
+                           <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                         </button>
+                         <p className="text-center text-[10px] text-slate-400 mt-2">
+                           Loops back to Eat Now with camera ready to log your creation
+                         </p>
+                      </div>
+                   )}
+
                    <button 
-                     onClick={() => setFallbackResult(null)}
-                     className="mt-6 w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-sm font-bold"
+                     onClick={() => {
+                        setFallbackResult(null);
+                        setCompletedSteps(new Set());
+                     }}
+                     className="mt-6 w-full py-3 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-lg text-sm font-bold transition-colors"
                    >
                      Try another idea
                    </button>

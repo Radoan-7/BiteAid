@@ -125,7 +125,12 @@ export interface FinalCanteenDecision {
   nutrition_highlights: string[]; // ["Low Oil", "High Fiber"]
   rejected_alternatives: RejectedAlternative[];
   detected_currency: string;
-  single_option_note?: string; // e.g. "No other options found matching your filter."
+  single_option_note?: string; // e.g. "No other suitable options found matching your filter."
+}
+
+export interface MissionBrief {
+  seek: string[];
+  avoid: string[];
 }
 
 // --- Fallback Journey Types ---

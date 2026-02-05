@@ -1,7 +1,7 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { X, Zap } from 'lucide-react';
-import { analyzeLiveFrame } from '../services/geminiService';
-import { CanteenGoal, ScannedItem, ConfidenceLevel } from '../types';
+import { analyzeLiveFrame, getMissionBrief } from '../services/geminiService';
+import { CanteenGoal, ScannedItem, ConfidenceLevel, MissionBrief } from '../types';
 
 interface LiveScanViewProps {
   goal: CanteenGoal;
@@ -25,6 +25,12 @@ export const LiveScanView: React.FC<LiveScanViewProps> = ({ goal, onDone, onCanc
   const [feedback, setFeedback] = useState("INITIALIZING...");
   const [latestItem, setLatestItem] = useState<string | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  
+  // Interactive state for category bar
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  
+  // Mission Brief State
+  const [mission, setMission] = useState<MissionBrief | null>(null);
 
   // Ref to track if an API call is currently in progress
   const isAnalyzingFrame = useRef(false);
@@ -32,7 +38,20 @@ export const LiveScanView: React.FC<LiveScanViewProps> = ({ goal, onDone, onCanc
   // Buffer for items to avoid duplicates in the UI
   const itemsMapRef = useRef<Map<string, ScannedItem>>(new Map());
 
-  // --- CAMERA SETUP ---
+  // --- CATEGORY STATS ---
+  const categoryStats = useMemo(() => {
+    const counts: Record<string, number> = { Meal: 0, Snack: 0, Drink: 0, Packaged: 0, Other: 0 };
+    items.forEach(item => {
+      // Normalize category or fallback to Other
+      const cat = item.category && counts[item.category] !== undefined ? item.category : 'Other';
+      counts[cat] = (counts[cat] || 0) + 1;
+    });
+    return counts;
+  }, [items]);
+
+  const totalItems = items.length;
+
+  // --- CAMERA SETUP & MISSION FETCH ---
   useEffect(() => {
     let stream: MediaStream | null = null;
 
@@ -59,13 +78,16 @@ export const LiveScanView: React.FC<LiveScanViewProps> = ({ goal, onDone, onCanc
     };
 
     startCamera();
+    
+    // Fetch Mission Brief
+    getMissionBrief(goal).then(setMission).catch(err => console.error("Failed to fetch brief", err));
 
     return () => {
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, []);
+  }, [goal]);
 
   // --- SCANNING LOGIC ---
   const captureAndAnalyze = useCallback(async (): Promise<boolean> => {
@@ -200,12 +222,22 @@ export const LiveScanView: React.FC<LiveScanViewProps> = ({ goal, onDone, onCanc
         {/* Overlays */}
         <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4">
           
-          {/* Top Bar */}
-          <div className="flex justify-between items-start z-10">
-             <div className="bg-black/80 text-white px-2 py-1 text-[10px] border border-white/20">
-                MODE: LIVE_SCAN // GOAL: {goal.toUpperCase()}
+          {/* Top Bar: Mission Brief */}
+          <div className="flex justify-between items-start z-10 w-full">
+             <div className="flex flex-col gap-1 max-w-[85%]">
+                 <div className="bg-black/90 text-white px-3 py-2 text-[10px] border border-white/20 font-mono leading-relaxed shadow-lg backdrop-blur-sm rounded-sm">
+                    <span className="text-emerald-400 font-bold">MISSION:</span> {goal.toUpperCase()}
+                    {mission ? (
+                        <div className="mt-1 pt-1 border-t border-white/10 flex flex-col gap-1">
+                            <span className="text-blue-300"><strong className="text-white">SEEK:</strong> {mission.seek.join(', ')}</span>
+                            <span className="text-rose-300"><strong className="text-white">SKIP:</strong> {mission.avoid.join(', ')}</span>
+                        </div>
+                    ) : (
+                        <div className="mt-1 text-slate-500 animate-pulse">DOWNLOADING BRIEF...</div>
+                    )}
+                 </div>
              </div>
-             <button onClick={onCancel} className="pointer-events-auto p-2 bg-black/80 text-white hover:text-red-500 border border-white/20">
+             <button onClick={onCancel} className="pointer-events-auto p-2 bg-black/80 text-white hover:text-red-500 border border-white/20 backdrop-blur-sm">
                <X className="w-5 h-5" />
              </button>
           </div>
@@ -242,29 +274,63 @@ export const LiveScanView: React.FC<LiveScanViewProps> = ({ goal, onDone, onCanc
           <div className="mt-auto pointer-events-auto z-10 w-full max-w-md mx-auto">
              
              {/* Log List */}
-             <div className="bg-black/80 border border-white/10 p-3 mb-3 max-h-40 overflow-y-auto custom-scrollbar">
+             <div className="bg-black/80 border border-white/10 p-3 mb-3 flex flex-col">
+                
+                {/* Header Row */}
                 <div className="flex justify-between items-center border-b border-white/20 pb-1 mb-2">
-                   <span className="text-[10px] text-slate-400">ITEM_LOG ({items.length})</span>
+                   <span className="text-[10px] text-slate-400 font-bold">
+                     {activeCategory ? `${activeCategory.toUpperCase()}: ${categoryStats[activeCategory]} ITEMS` : `ITEM_LOG (${items.length})`}
+                   </span>
                    {detectedCurrency && <span className="text-[10px] text-slate-400">CUR: {detectedCurrency}</span>}
                 </div>
-                {items.length === 0 ? (
-                   <div className="text-center py-4 text-slate-600 text-xs">
-                      > WAITING_FOR_INPUT...
-                   </div>
-                ) : (
-                  <div className="space-y-1">
-                    {items.slice().reverse().map((item) => (
-                       <div key={item.id} className="flex items-center justify-between text-xs text-slate-200">
-                          <div className="truncate flex-1">
-                             <span className="text-emerald-500 mr-2">✓</span>
-                             {item.name.toUpperCase()}
-                             <MinimalConfidence level={item.confidence} />
-                          </div>
-                          <span className="ml-2 opacity-70">{item.price_estimate || '---'}</span>
-                       </div>
-                    ))}
+
+                {/* Visual Category Bar */}
+                {totalItems > 0 && (
+                  <div className="flex w-full h-2.5 mb-2 gap-0.5">
+                    {(Object.keys(categoryStats) as Array<keyof typeof categoryStats>).map(cat => {
+                      const count = categoryStats[cat];
+                      if (count === 0) return null;
+                      
+                      let bgClass = 'bg-slate-400';
+                      if (cat === 'Meal') bgClass = 'bg-emerald-400';
+                      if (cat === 'Snack') bgClass = 'bg-amber-400';
+                      if (cat === 'Drink') bgClass = 'bg-sky-400';
+                      
+                      const isActive = activeCategory === cat;
+
+                      return (
+                        <div 
+                          key={cat}
+                          style={{ flexGrow: count, flexBasis: 0 }}
+                          className={`${bgClass} h-full rounded-[1px] cursor-pointer transition-all duration-300 ${isActive ? 'opacity-100 ring-1 ring-white' : 'opacity-80 hover:opacity-100'}`}
+                          onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
+                        />
+                      );
+                    })}
                   </div>
                 )}
+
+                {/* List Container - Fixed Height Scrollable */}
+                <div className="max-h-32 overflow-y-auto custom-scrollbar">
+                  {items.length === 0 ? (
+                     <div className="text-center py-4 text-slate-600 text-xs">
+                        > WAITING_FOR_INPUT...
+                     </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {items.slice().reverse().map((item) => (
+                         <div key={item.id} className={`flex items-center justify-between text-xs transition-opacity ${activeCategory && activeCategory !== item.category && activeCategory !== (item.category || 'Other') ? 'opacity-30' : 'text-slate-200'}`}>
+                            <div className="truncate flex-1">
+                               <span className="text-emerald-500 mr-2">✓</span>
+                               {item.name.toUpperCase()}
+                               <MinimalConfidence level={item.confidence} />
+                            </div>
+                            <span className="ml-2 opacity-70">{item.price_estimate || '---'}</span>
+                         </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
              </div>
 
              {/* Action Buttons */}
