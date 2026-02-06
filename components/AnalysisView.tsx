@@ -19,14 +19,18 @@ import {
   Sparkles, 
   ArrowUpRight, 
   ArrowDownRight, 
+  ArrowDown,
   Minus, 
   RefreshCw, 
-  Clock, 
   Activity, 
-  ChevronDown,
   Brain,
   Zap,
-  Leaf
+  Clock,
+  TrendingUp,
+  TrendingDown,
+  ChevronDown,
+  ChevronUp,
+  XCircle
 } from 'lucide-react';
 
 interface AnalysisViewProps {
@@ -91,77 +95,6 @@ const ConfidenceIndicator: React.FC<{ level: ConfidenceLevel, tooltip?: string, 
   );
 };
 
-interface ActionCardProps {
-  title: string;
-  type: 'do' | 'avoid' | 'balance';
-  items: ConfidentItem[];
-  setShowConfidenceModal: (show: boolean) => void;
-}
-
-const ActionCard: React.FC<ActionCardProps> = ({ title, type, items, setShowConfidenceModal }) => {
-  if (!items || items.length === 0) return null;
-
-  const styles = {
-    do: {
-      border: 'border-emerald-100',
-      bgHover: 'hover:border-emerald-200',
-      iconBg: 'bg-emerald-100',
-      iconColor: 'text-emerald-700',
-      icon: <CheckCircle2 className="w-5 h-5" />,
-    },
-    avoid: {
-      border: 'border-rose-100',
-      bgHover: 'hover:border-rose-200',
-      iconBg: 'bg-rose-100',
-      iconColor: 'text-rose-700',
-      icon: <MinusCircle className="w-5 h-5" />,
-    },
-    balance: {
-      border: 'border-indigo-100',
-      bgHover: 'hover:border-indigo-200',
-      iconBg: 'bg-indigo-100',
-      iconColor: 'text-indigo-700',
-      icon: <Scale className="w-5 h-5" />,
-    }
-  };
-
-  const style = styles[type];
-  const displayItems = items.slice(0, 2);
-
-  return (
-    <div 
-      className={`
-        bg-white rounded-2xl shadow-sm border ${style.border} ${style.bgHover} 
-        transition-all p-5 h-full flex flex-col relative
-      `}
-    >
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <div className={`p-2 rounded-lg ${style.iconBg} ${style.iconColor}`}>
-            {style.icon}
-          </div>
-          <h3 className={`font-bold ${style.iconColor}`}>{title}</h3>
-        </div>
-        <button onClick={() => setShowConfidenceModal(true)} className="text-slate-300 hover:text-slate-400" title="What does confidence mean?">
-           <HelpCircle className="w-4 h-4" />
-        </button>
-      </div>
-      
-      <ul className="space-y-3 flex-1">
-        {displayItems.map((item, i) => (
-          <li key={i} className="flex items-start gap-2.5 text-sm text-slate-700">
-            <div className={`w-1.5 h-1.5 rounded-full mt-2 shrink-0 ${style.iconColor.replace('text-', 'bg-')}`}></div>
-            <span className="leading-relaxed flex-1">
-              {item.text}
-              <ConfidenceIndicator level={item.confidence} />
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-};
-
 const RecoveryTipCard: React.FC<{ tip: NonNullable<TimelineCheckpoint['recovery_tip']>, time: string }> = ({ tip, time }) => (
   <div className="flex items-start gap-3 p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
     <div className="p-1.5 bg-white rounded-full shadow-sm text-indigo-600 mt-0.5">
@@ -194,6 +127,9 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
   const [explainingPoint, setExplainingPoint] = useState<TimelineCheckpoint | null>(null);
   const [explanationResult, setExplanationResult] = useState<PointExplanation | null>(null);
   const [isExplaining, setIsExplaining] = useState(false);
+
+  // New Collapsible State
+  const [expandedTimeline, setExpandedTimeline] = useState(false);
 
   const handleSimulate = async (item: string) => {
     if (simulatingItem) return;
@@ -231,8 +167,12 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
   const handleExportPDF = async () => {
     if (!reportRef.current) return;
     setIsExporting(true);
+    // Temporarily expand all for PDF (optional, but good UX)
+    const wasTimelineOpen = expandedTimeline;
+    setExpandedTimeline(true);
+
     try {
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 500)); // Wait for expansion animation
       const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' });
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -256,19 +196,29 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
       alert("Could not generate PDF. Please try again.");
     } finally {
       setIsExporting(false);
+      setExpandedTimeline(wasTimelineOpen);
     }
   };
+
+  // Helper values for Next 2 Hours
+  // timeline indices: 0=0.5h, 1=1h, 2=2h...
+  const t0 = result.after_effect_timeline[0]; 
+  const t1 = result.after_effect_timeline[1];
+  const t2 = result.after_effect_timeline[2];
+  const hasTimelineData = t0 && t1 && t2;
+  
+  const quickFix = result.actionable_guidance.consider_balancing[0]?.text;
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 relative pb-32">
       
       {/* Report Container */}
-      <div ref={reportRef} className="space-y-8">
+      <div ref={reportRef} className="space-y-6">
         
-        {/* 1. Header & Data Section */}
+        {/* 1. Header & Data Section (UNCHANGED) */}
         <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="flex flex-col md:flex-row items-stretch">
-             {/* Image Side - Left Side with Padding - Decreased Width to 38% */}
+             {/* Image Side */}
              {imagePreview && (
                 <div className="w-full md:w-[38%] p-3 md:p-4 shrink-0">
                   <div className="relative h-64 md:h-full w-full rounded-2xl overflow-hidden bg-slate-50 shadow-sm border border-slate-100">
@@ -277,7 +227,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
                 </div>
              )}
              
-             {/* Content Side - Right Side */}
+             {/* Content Side */}
              <div className="flex-1 p-6 md:p-8 space-y-6">
                 
                 {/* Header Summary */}
@@ -292,9 +242,8 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
                   </p>
                 </div>
 
-                {/* Detected Items & Flags - Stacked Layout (Rows) */}
+                {/* Detected Items & Flags */}
                 <div className="pt-6 border-t border-slate-100 flex flex-col gap-6">
-                   
                    {/* Row 1: Detected Items */}
                    <div className="space-y-3">
                       <div className="flex items-center gap-2">
@@ -344,58 +293,137 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
                        </>
                      )}
                    </div>
-
                 </div>
              </div>
           </div>
         </div>
 
-        {/* 2. Action Cards Grid (Guidance) - Moved Above Timeline */}
-        <div className="space-y-6">
-           <div className="flex items-center gap-2 px-1">
-              <Sparkles className="w-5 h-5 text-emerald-600" />
-              <h3 className="font-bold text-slate-900">Harm Reduction Guidance</h3>
+        {/* --- SECTION 1: FIX IT NOW --- */}
+        <div className="grid md:grid-cols-2 gap-4">
+           {/* DO THIS */}
+           <div className="bg-emerald-50/40 border border-emerald-100 rounded-2xl p-6">
+              <h3 className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 fill-emerald-100" /> Do This
+              </h3>
+              <ul className="space-y-3">
+                {result.actionable_guidance.do_this.slice(0, 2).map((item, i) => (
+                   <li key={i} className="flex items-start gap-3">
+                      <span className="mt-1.5 w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0"></span>
+                      <span className="text-sm font-medium text-slate-800 leading-snug">{item.text}</span>
+                   </li>
+                ))}
+              </ul>
            </div>
-
-           {/* Updated grid to use 3 columns on medium screens */}
-           <div className="grid md:grid-cols-3 gap-6 items-start">
-              <ActionCard type="do" title="Do This Now" items={result.actionable_guidance.do_this} setShowConfidenceModal={setShowConfidenceModal} />
-              <ActionCard type="avoid" title="Avoid / Limit" items={result.actionable_guidance.avoid_this} setShowConfidenceModal={setShowConfidenceModal} />
-              <ActionCard type="balance" title="Balance It Later" items={result.actionable_guidance.consider_balancing} setShowConfidenceModal={setShowConfidenceModal} />
+           
+           {/* SKIP THIS */}
+           <div className="bg-rose-50/40 border border-rose-100 rounded-2xl p-6">
+              <h3 className="text-xs font-bold text-rose-600 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <XCircle className="w-5 h-5 fill-rose-100" /> Skip This
+              </h3>
+              <ul className="space-y-3">
+                {result.actionable_guidance.avoid_this.slice(0, 2).map((item, i) => (
+                   <li key={i} className="flex items-start gap-3">
+                      <span className="mt-1.5 w-1.5 h-1.5 bg-rose-500 rounded-full shrink-0"></span>
+                      <span className="text-sm font-medium text-slate-800 leading-snug">{item.text}</span>
+                   </li>
+                ))}
+              </ul>
            </div>
         </div>
 
-        {/* 3. Timeline Section (Projected Effects) - Enhanced with Graph */}
-        {result.after_effect_timeline && result.after_effect_timeline.length > 0 && (
-           <div className="space-y-6">
-              <div className="flex items-center justify-between px-1">
-                 <div className="flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-blue-500" />
-                    <h3 className="font-bold text-slate-900">Projected Bio-Impact</h3>
+        {/* --- SECTION 2: WHAT HAPPENS NEXT --- */}
+        {hasTimelineData && (
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+            <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2 mb-6">
+              <Zap className="w-5 h-5 text-amber-500" /> WHAT HAPPENS NEXT
+            </h3>
+            
+            <div className="grid md:grid-cols-2 gap-8">
+              {/* Timeline */}
+              <div className="space-y-4">
+                 
+                 {/* Current */}
+                 <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+                    <span className="text-sm font-bold text-slate-500">Current</span>
+                    <span className="text-sm font-bold text-slate-900">Energy {t0.energy_score}%</span>
                  </div>
-                 <span className="text-xs font-medium text-slate-400 bg-slate-50 px-2 py-1 rounded">
-                   AI Projection
-                 </span>
+
+                 {/* +1 Hour */}
+                 <div className="flex items-center justify-between p-2">
+                    <span className="text-sm font-medium text-slate-500">+1 hour</span>
+                    <div className="flex items-center gap-2">
+                       {t1.energy_score < t0.energy_score ? (
+                           <ArrowDown className="w-4 h-4 text-rose-500" />
+                       ) : (
+                           <ArrowUpRight className="w-4 h-4 text-emerald-500" />
+                       )}
+                       <span className="text-sm font-bold text-slate-900">{t1.energy_score}%</span>
+                       <span className="text-xs text-slate-400 lowercase">({t1.feeling_indicators[0] || 'stable'})</span>
+                    </div>
+                 </div>
+
+                 {/* +2 Hours */}
+                 <div className="flex items-center justify-between p-2 border-t border-slate-100">
+                    <span className="text-sm font-medium text-slate-500">+2 hours</span>
+                    <div className="flex items-center gap-2">
+                       {t2.energy_score < t1.energy_score ? (
+                           <ArrowDown className="w-4 h-4 text-rose-500" />
+                       ) : (
+                           <ArrowUpRight className="w-4 h-4 text-emerald-500" />
+                       )}
+                       <span className="text-sm font-bold text-slate-900">{t2.energy_score}%</span>
+                       <span className="text-xs text-slate-400 lowercase">({t2.feeling_indicators[0] || 'stable'})</span>
+                    </div>
+                 </div>
               </div>
               
-              {/* Interactive Graph */}
-              <AnalysisGraph 
-                data={result.after_effect_timeline} 
-                onPointClick={handlePointClick}
-              />
-
-              {/* Recovery Suggestions Row */}
-              <div className="grid md:grid-cols-3 gap-4">
-                 {result.after_effect_timeline
-                    .filter(p => p.recovery_tip)
-                    .slice(0, 3) // Limit to 3 max to preserve layout
-                    .map((point, i) => (
-                      point.recovery_tip && <RecoveryTipCard key={i} tip={point.recovery_tip} time={point.time_window} />
-                    ))
-                 }
-              </div>
-           </div>
+              {/* Quick Fix */}
+              {quickFix && (
+                <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-100/50 flex flex-col justify-center h-full">
+                  <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest block mb-2">💊 Quick Fix</span>
+                  <p className="text-sm text-blue-900 font-bold leading-snug">
+                    {quickFix}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
         )}
+
+        {/* --- SECTION 3: MORE DETAILS (COLLAPSIBLE) --- */}
+        <div className="space-y-3">
+           {/* Timeline Toggle */}
+           <div className="border border-slate-200 rounded-2xl bg-white overflow-hidden transition-all shadow-sm">
+             <button 
+               onClick={() => setExpandedTimeline(!expandedTimeline)}
+               className="w-full flex items-center justify-between p-5 bg-white hover:bg-slate-50 transition-colors group"
+             >
+               <div className="flex items-center gap-3">
+                  <Activity className="w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                  <span className="font-bold text-slate-700">Full 6-hour Timeline</span>
+               </div>
+               {expandedTimeline ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+             </button>
+             
+             {expandedTimeline && (
+               <div className="p-6 border-t border-slate-100 animate-in slide-in-from-top-2 duration-300">
+                  <div className="h-64 sm:h-72 w-full mb-6">
+                     <AnalysisGraph data={result.after_effect_timeline} onPointClick={handlePointClick} />
+                  </div>
+                  {/* Recovery Suggestions Grid */}
+                  <div className="grid md:grid-cols-3 gap-4">
+                     {result.after_effect_timeline
+                        .filter(p => p.recovery_tip)
+                        .slice(0, 3) 
+                        .map((point, i) => (
+                          point.recovery_tip && <RecoveryTipCard key={i} tip={point.recovery_tip} time={point.time_window} />
+                        ))
+                     }
+                  </div>
+               </div>
+             )}
+           </div>
+        </div>
 
       </div>
 
@@ -404,15 +432,15 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
         <button 
           onClick={handleExportPDF}
           disabled={isExporting}
-          className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-medium rounded-full transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-full transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed text-sm"
         >
           {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-          {isExporting ? 'Generating PDF...' : 'Download Report PDF'}
+          {isExporting ? 'Generating...' : 'Download Report PDF'}
         </button>
 
         <button 
           onClick={onReset}
-          className="px-6 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-medium rounded-full transition-all shadow-lg hover:shadow-xl transform active:scale-95"
+          className="px-8 py-3 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-full transition-all shadow-lg hover:shadow-xl transform active:scale-95 text-sm"
         >
           Analyze Another Meal
         </button>

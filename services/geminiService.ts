@@ -51,29 +51,26 @@ export const analyzeMealImage = async (
     
     CRITICAL CONTEXT:
     The user's specific wellness goal is: "${goal}".
-    Tailor all advice, especially "do_this" and "avoid_this", to directly support "${goal}".
+    Tailor all advice to directly support "${goal}".
 
     Output JSON ONLY based on the schema provided.
     
     Guidance on fields:
-    - detected_foods: List visible items. Provide confidence level ('High', 'Medium', 'Low') based on visual clarity.
-    - health_impact_level: "Low" (Healthy/Safe), "Moderate" (Okay occasionally), "High" (Potential adverse effects if consumed often/large quantity).
-    - nutritional_risks: E.g., "High Sodium", "Added Sugar", "Low Fiber", "Deep Fried", "Blood Sugar Spike Risk". Provide confidence level.
+    - detected_foods: List visible items. Provide confidence level.
+    - health_impact_level: "Low", "Moderate", "High".
+    - nutritional_risks: E.g., "High Sodium", "Added Sugar", "Blood Sugar Spike Risk".
     
-    - actionable_guidance: Provide 2-3 distinct, specific, and practical tips per category.
-      - "do_this": Immediate positive actions. 
+    - actionable_guidance: Provide 2 distinct tips per category.
+      - "do_this": Immediate positive actions to take NOW. 
       - "avoid_this": What to skip or remove *right now*. 
       - "consider_balancing": Post-meal adjustments.
 
     - after_effect_timeline: Generate a granular 6-point timeline (0.5h, 1h, 2h, 3h, 4h, 6h).
-      For each point, provide:
-      - hour_offset: The numeric hour (e.g., 0.5, 1, 2).
-      - scores (0-100): Estimate 'energy_score', 'focus_score', 'digestion_score'.
-        - 100 = Peak/Perfect, 0 = Crash/Distress.
-        - Curves should reflect biological reality (e.g., blood sugar spikes then drops).
-      - feeling_indicators: 1-2 words (e.g., "Alert", "Heavy").
+      - hour_offset: Numeric (e.g. 0.5).
+      - scores (0-100): 'energy_score', 'focus_score', 'digestion_score'.
+      - feeling_indicators: 1-2 words.
       - description: 1 sentence on the physiology.
-      - recovery_tip: IF scores drop below 60, provide a specific fix (e.g., "Drink water", "Walk") and a confidence level ('High', 'Medium', 'Low').
+      - recovery_tip: Specific fix if scores are low.
 
     - brief_supportive_comment: A 1-sentence non-judgmental observation.
   `;
