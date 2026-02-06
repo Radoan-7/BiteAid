@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { HomeScreen } from './components/HomeScreen';
 import { EatNowFlow } from './components/EatNowFlow';
-import { SmartCanteenPicker } from './components/SmartCanteenPicker';
 
-type AppView = 'home' | 'eat-now' | 'canteen';
+type AppView = 'home' | 'eat-now';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>('home');
@@ -26,10 +25,6 @@ const App: React.FC = () => {
       
       {currentView === 'eat-now' && (
         <EatNowFlow onHome={() => setCurrentView('home')} />
-      )}
-      
-      {currentView === 'canteen' && (
-        <SmartCanteenPicker onHome={() => setCurrentView('home')} />
       )}
     </>
   );

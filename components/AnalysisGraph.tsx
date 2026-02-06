@@ -96,9 +96,9 @@ export const AnalysisGraph: React.FC<AnalysisGraphProps> = ({ data, onPointClick
         <line x1={graphMarginX} y1={height-bottomMargin} x2={width-graphMarginX} y2={height-bottomMargin} stroke="#f1f5f9" strokeWidth="0.5" />
 
         {/* Lines */}
-        <path d={generatePath('digestion_score')} fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-30" />
-        <path d={generatePath('focus_score')} fill="none" stroke="#6366f1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-30" />
-        <path d={generatePath('energy_score')} fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d={generatePath('digestion_score')} fill="none" stroke="#10b981" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="opacity-30" />
+        <path d={generatePath('focus_score')} fill="none" stroke="#6366f1" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="opacity-30" />
+        <path d={generatePath('energy_score')} fill="none" stroke="#f59e0b" strokeWidth="2.375" strokeLinecap="round" strokeLinejoin="round" />
 
         {/* Points */}
         {data.map((p, i) => (

@@ -484,6 +484,24 @@ export const makeFinalCanteenDecision = async (
 ): Promise<FinalCanteenDecision> => {
   const model = "gemini-3-flash-preview";
 
+  // FAILSAFE: If no items and no menu, return static result instead of throwing
+  if (scannedItems.length === 0 && !menuImageBase64) {
+    return {
+      final_choice: {
+        name: "No Food Detected",
+        description: "We couldn't identify any food items in your scan or menu. Please try rescanning or upload a menu photo.",
+        price: "---",
+        emoji: "🧐",
+        type: 'Single'
+      },
+      reasoning: "No visual data or scanned items were provided. I need input to make a recommendation.",
+      nutrition_highlights: [],
+      rejected_alternatives: [],
+      detected_currency: userCurrency,
+      single_option_note: "No input data."
+    };
+  }
+
   const parts = [];
   
   // Create a text summary of all scanned items

@@ -1,8 +1,8 @@
 import React from 'react';
-import { Camera, Utensils, ArrowRight, Heart } from 'lucide-react';
+import { Camera, ArrowRight, Heart } from 'lucide-react';
 
 interface HomeScreenProps {
-  onNavigate: (mode: 'eat-now' | 'canteen') => void;
+  onNavigate: (mode: 'eat-now') => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
@@ -23,7 +23,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
             </div>
             <span className="text-2xl font-bold text-slate-900 tracking-tight">BiteAid</span>
           </div>
-          <h1 className="text-3xl font-bold text-slate-900">Choose your path</h1>
+          <h1 className="text-3xl font-bold text-slate-900">Welcome</h1>
           <p className="text-slate-600">Your privacy-first AI food companion.</p>
         </div>
 
@@ -45,23 +45,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
               <p className="text-sm text-slate-500 leading-snug">Analyze your meal and get instant harm-reduction tips.</p>
             </div>
             <ArrowRight className="relative w-5 h-5 text-slate-300 group-hover:text-emerald-500 group-hover:translate-x-1 transition-all" />
-          </button>
-
-          {/* Today's Bite Card (formerly Canteen Picker) */}
-          <button 
-            onClick={() => onNavigate('canteen')}
-            className="w-full group bg-white p-6 rounded-3xl shadow-sm border border-slate-200 hover:border-blue-200 hover:shadow-lg hover:shadow-blue-500/5 transition-all text-left flex items-center gap-5 relative overflow-hidden"
-          >
-            <div className="absolute right-0 top-0 w-24 h-24 bg-blue-50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
-
-            <div className="relative w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-inner border border-blue-100/50">
-              <Utensils className="w-8 h-8 text-blue-600" />
-            </div>
-            <div className="relative flex-1">
-              <h3 className="text-lg font-bold text-slate-900 mb-1 group-hover:text-blue-700 transition-colors">Today’s Bite</h3>
-              <p className="text-sm text-slate-500 leading-snug">One smart pick. Zero overthinking.</p>
-            </div>
-            <ArrowRight className="relative w-5 h-5 text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
           </button>
 
         </div>
