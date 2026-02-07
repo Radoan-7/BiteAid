@@ -19,7 +19,8 @@ export const AnalysisGraph: React.FC<AnalysisGraphProps> = ({ data, onPointClick
   const graphMarginX = 6; 
   const graphWidth = width - (graphMarginX * 2);
 
-  const maxHour = 6;
+  // Dynamic X-Axis Scaling
+  const maxHour = Math.max(6, ...data.map(d => d.hour_offset));
   const getX = (hour: number) => graphMarginX + (hour / maxHour) * graphWidth;
   
   // Y-Axis Configuration
@@ -35,33 +36,61 @@ export const AnalysisGraph: React.FC<AnalysisGraphProps> = ({ data, onPointClick
   };
 
   const handleInteraction = (clientX: number) => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || data.length === 0) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const x = clientX - rect.left;
-    const svgX = (x / rect.width) * width;
+    
+    // 1. Calculate relative X position (0 to 1) within the container
+    let relativeX = (clientX - rect.left) / rect.width;
+    
+    // Clamp between 0 and 1 to prevent out-of-bounds errors
+    relativeX = Math.max(0, Math.min(1, relativeX));
 
-    // Find nearest point
-    let minDist = Infinity;
-    let nearestIdx = 0;
+    // 2. Map this 0-1 ratio directly to the nearest data index
+    // This creates "zones" so you don't have to hover exactly on the point.
+    const index = Math.round(relativeX * (data.length - 1));
 
-    data.forEach((p, i) => {
-      const px = getX(p.hour_offset);
-      const dist = Math.abs(svgX - px);
-      if (dist < minDist) {
-        minDist = dist;
-        nearestIdx = i;
-      }
-    });
-
-    setActiveIndex(nearestIdx);
+    setActiveIndex(index);
   };
 
   const activePoint = activeIndex !== null ? data[activeIndex] : null;
 
+  // Smart Tooltip Positioning
+  const getTooltipStyles = () => {
+    if (activeIndex === null) return {};
+
+    // Standard positioning
+    let style: React.CSSProperties = { top: '55%' };
+    let classes = "absolute z-30 bg-slate-900 text-white p-3 rounded-xl shadow-xl border border-slate-700 pointer-events-none transition-all duration-75";
+
+    if (activeIndex === 0) {
+      // First point: Align Left
+      style.left = '0%';
+      style.transform = 'translate(0, 0)'; // No centering
+      classes += " ml-2"; // Tiny margin from edge
+    } else if (activeIndex === data.length - 1) {
+      // Last point: Align Right
+      style.right = '0%';
+      style.left = 'auto'; // Override default
+      style.transform = 'translate(0, 0)';
+      classes += " mr-2";
+    } else {
+      // Middle points: Center
+      // Calculate exact percentage based on the SVG coordinate system
+      const percent = (getX(data[activeIndex].hour_offset) / width) * 100;
+      style.left = `${percent}%`;
+      style.transform = 'translate(-50%, 0)';
+    }
+
+    return { style, classes };
+  };
+
+  const { style: tooltipStyle, classes: tooltipClasses } = getTooltipStyles();
+
   return (
     <div 
       ref={containerRef}
-      className="w-full bg-white rounded-3xl border border-slate-200 shadow-sm relative select-none overflow-hidden cursor-crosshair group h-64 sm:h-72"
+      // Removed overflow-hidden so tooltip can bleed out if necessary, relying on container clipping if needed
+      className="w-full bg-white rounded-3xl border border-slate-200 shadow-sm relative select-none cursor-crosshair group h-64 sm:h-72 touch-none"
       onMouseMove={(e) => handleInteraction(e.clientX)}
       onTouchMove={(e) => handleInteraction(e.touches[0].clientX)}
       onMouseLeave={() => setActiveIndex(null)}
@@ -124,11 +153,8 @@ export const AnalysisGraph: React.FC<AnalysisGraphProps> = ({ data, onPointClick
       {/* Active Point Tooltip Overlay */}
       {activePoint && (
          <div 
-           className="absolute z-20 bg-slate-900 text-white p-3 rounded-xl shadow-xl border border-slate-700 pointer-events-none transform -translate-x-1/2 transition-all duration-75"
-           style={{ 
-              left: `${(getX(activePoint.hour_offset) / width) * 100}%`,
-              top: '55%' 
-           }}
+           className={tooltipClasses}
+           style={tooltipStyle}
          >
             <div className="text-xs font-bold text-slate-400 mb-1">{activePoint.time_window}</div>
             <div className="text-sm font-bold whitespace-nowrap mb-2">{activePoint.feeling_indicators.join(', ')}</div>

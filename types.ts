@@ -30,13 +30,92 @@ export interface TimelineCheckpoint {
   recovery_tip?: RecoveryTip; // Optional tip if score is low
 }
 
-export interface AnalysisResult {
+export interface ContextSummary {
+  mode: 'exam' | 'latenight' | 'workout' | 'meeting' | 'default';
+  icon: string;
+  title: string;
+  understanding: string;
+}
+
+export interface DefaultAnalysisResult {
+  mode?: 'none' | 'exam' | 'latenight' | 'workout' | 'meeting';
+  context_summary?: ContextSummary;
   detected_foods: ConfidentItem[];
   health_impact_level: 'Low' | 'Moderate' | 'High';
   nutritional_risks: ConfidentItem[];
   actionable_guidance: ActionableGuidance;
   brief_supportive_comment: string;
   after_effect_timeline: TimelineCheckpoint[];
+  thinking_process?: string[];
+}
+
+export interface ExamAnalysisResult {
+  mode: 'exam';
+  exam_collision_alert: {
+    risk_level: string; // 'CRITICAL' | 'HIGH' | 'MODERATE' | 'LOW'
+    alert_message: string;
+    exam_time: string;
+    predicted_crash_time: string;
+  };
+  exam_survival_strategy: {
+    time: string;
+    priority: string; // 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
+    action: string;
+    reasoning: string;
+  }[];
+  cognitive_impact_summary: {
+    focus_impact: string;
+    brain_fog_risk: string;
+    overall_prediction: string;
+  };
+  thinking_process?: string[];
+}
+
+export interface MeetingAnalysisResult {
+  mode: 'meeting';
+  professional_performance_alert: {
+    readiness_score: number;
+    risk_level: string; // 'OPTIMAL' | 'RISKY' | 'BAD'
+    main_concerns: string[];
+  };
+  social_performance_metrics: {
+    breath_freshness: string;
+    bloating_risk: string;
+    visible_fatigue: string;
+  };
+  professional_image_rescue: {
+    time: string;
+    action: string;
+    impact: string;
+  }[];
+  thinking_process?: string[];
+}
+
+export interface WorkoutAnalysisResult {
+  mode: 'workout';
+  workout_readiness_assessment: {
+    readiness_score: number;
+    main_issue: string;
+    fuel_timing_verdict: string;
+  };
+  energy_availability_window: {
+    carb_availability: string;
+    fat_digestion_status: string;
+  };
+  performance_optimization: {
+    best_option: string;
+    intensity_adjustment?: string;
+  };
+  thinking_process?: string[];
+}
+
+export type AnalysisResult = DefaultAnalysisResult | ExamAnalysisResult | MeetingAnalysisResult | WorkoutAnalysisResult;
+
+export interface AnalysisState {
+  isLoading: boolean;
+  error: string | null;
+  result: AnalysisResult | null;
+  imagePreview: string | null;
 }
 
 export type HealthGoal = 
@@ -45,13 +124,6 @@ export type HealthGoal =
   | 'Avoid Bloating'
   | 'Improve Sleep'
   | 'Maintain Energy';
-
-export interface AnalysisState {
-  isLoading: boolean;
-  error: string | null;
-  result: AnalysisResult | null;
-  imagePreview: string | null;
-}
 
 export interface ImpactMetric {
   label: string;

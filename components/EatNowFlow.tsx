@@ -5,7 +5,7 @@ import { GoalSelector } from './GoalSelector';
 import { AnalysisView } from './AnalysisView';
 import { AnalysisResult, HealthGoal } from '../types';
 import { analyzeMealImage, fileToGenerativePart } from '../services/geminiService';
-import { Info, AlertCircle } from 'lucide-react';
+import { Info, AlertCircle, Mic, MicOff, BookOpen, Moon, Dumbbell, Briefcase, Sparkles, CheckCircle2 } from 'lucide-react';
 
 interface EatNowFlowProps {
   onHome: () => void;
@@ -17,6 +17,11 @@ export const EatNowFlow: React.FC<EatNowFlowProps> = ({ onHome }) => {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [fileToAnalyze, setFileToAnalyze] = useState<File | null>(null);
+  
+  // Context Input State
+  const [contextInput, setContextInput] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
   
   // Track the current analysis ID to handle cancellation/race conditions
   const analysisIdRef = useRef<number>(0);
@@ -31,8 +36,6 @@ export const EatNowFlow: React.FC<EatNowFlowProps> = ({ onHome }) => {
   // 2. Smooth scroll to top when results appear or are reset
   useEffect(() => {
     if (isMounted.current) {
-      // Use a small timeout to ensure DOM update (switching from Upload to Result view)
-      // is fully processed before we try to scroll to the top of it.
       const timer = setTimeout(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }, 100);
@@ -40,28 +43,67 @@ export const EatNowFlow: React.FC<EatNowFlowProps> = ({ onHome }) => {
     }
   }, [result]);
 
-  const handleImageSelect = async (file: File) => {
-    setIsLoading(true);
-    setError(null);
-    setResult(null);
-
+  const handleImageSelect = (file: File) => {
     // Create preview
     const previewUrl = URL.createObjectURL(file);
     setImagePreview(previewUrl);
+    setFileToAnalyze(file);
+    setError(null);
+  };
+
+  const handleContextOption = (text: string) => {
+    setContextInput(text);
+  };
+
+  const toggleRecording = () => {
+    if (isRecording) {
+      setIsRecording(false);
+      return;
+    }
+
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      alert("Voice input is not supported in this browser.");
+      return;
+    }
+
+    // @ts-ignore
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => setIsRecording(true);
+    recognition.onend = () => setIsRecording(false);
+    
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setContextInput(prev => (prev ? prev + ' ' + transcript : transcript));
+    };
+
+    recognition.start();
+  };
+
+  const handleAnalyze = async () => {
+    if (!fileToAnalyze) return;
+
+    setIsLoading(true);
+    setError(null);
+    setResult(null);
 
     // Increment request ID
     const currentId = analysisIdRef.current + 1;
     analysisIdRef.current = currentId;
 
     try {
-      const base64Data = await fileToGenerativePart(file);
+      const base64Data = await fileToGenerativePart(fileToAnalyze);
       
-      // Check if cancelled during file processing
       if (analysisIdRef.current !== currentId) return;
 
-      const data = await analyzeMealImage(base64Data, file.type, currentGoal);
+      // Use contextInput if provided, otherwise undefined
+      const contextToUse = contextInput.trim().length > 0 ? contextInput : undefined;
+      const data = await analyzeMealImage(base64Data, fileToAnalyze.type, currentGoal, contextToUse);
       
-      // Check if cancelled during API call
       if (analysisIdRef.current === currentId) {
         setResult(data);
         setIsLoading(false);
@@ -75,20 +117,20 @@ export const EatNowFlow: React.FC<EatNowFlowProps> = ({ onHome }) => {
   };
 
   const handleCancelAnalysis = () => {
-    // Increment ID to invalidate any pending requests
     analysisIdRef.current += 1;
     setIsLoading(false);
-    // Note: We keep the imagePreview in case they want to retry, or we could clear it.
-    // Given "user might get it wrong", clearing it to allow new selection is better.
     setImagePreview(null);
+    setFileToAnalyze(null);
+    setContextInput('');
     setError(null);
   };
 
   const handleReset = () => {
     setResult(null);
     setImagePreview(null);
+    setFileToAnalyze(null);
+    setContextInput('');
     setError(null);
-    // Revoke object URL to avoid memory leaks
     if (imagePreview) URL.revokeObjectURL(imagePreview);
   };
 
@@ -98,8 +140,7 @@ export const EatNowFlow: React.FC<EatNowFlowProps> = ({ onHome }) => {
 
       <main className="flex-grow container mx-auto px-4 py-8">
         {!result ? (
-          // Analysis Input View
-          <div className="max-w-2xl mx-auto space-y-12 animate-in fade-in zoom-in duration-500">
+          <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in zoom-in duration-500">
             
             <div className="text-center space-y-4 pt-8">
               <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900">
@@ -110,26 +151,103 @@ export const EatNowFlow: React.FC<EatNowFlowProps> = ({ onHome }) => {
               </p>
             </div>
 
-            <div className="space-y-8 bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
-              <UploadZone 
-                onImageSelected={handleImageSelect} 
-                isLoading={isLoading} 
-                onCancel={handleCancelAnalysis}
-              />
-              <div className="border-t border-slate-100 pt-8">
+            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 space-y-8">
+              
+              {/* 1. Upload Zone & Confirmation */}
+              <div className="space-y-4">
+                <UploadZone 
+                  onImageSelected={handleImageSelect} 
+                  isLoading={isLoading} 
+                  onCancel={handleCancelAnalysis}
+                />
+                
+                {/* Visual Confirmation of Upload */}
+                {fileToAnalyze && !isLoading && (
+                  <div className="flex items-center justify-center gap-2 text-emerald-600 bg-emerald-50 py-2 px-4 rounded-full w-fit mx-auto animate-in fade-in slide-in-from-top-2 border border-emerald-100 shadow-sm">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span className="text-sm font-bold">Image uploaded</span>
+                      <button onClick={handleCancelAnalysis} className="ml-2 text-xs underline text-emerald-500 hover:text-emerald-700">Change</button>
+                  </div>
+                )}
+              </div>
+              
+              {/* 2. Context Input (Text + Voice + Quick Options) */}
+              <div className="space-y-3">
+                 <div className="text-center">
+                    <label className="text-sm font-bold text-slate-700">Context <span className="text-slate-400 font-normal">- Optional</span></label>
+                 </div>
+                 
+                 <div className="relative">
+                    <textarea 
+                       value={contextInput}
+                       onChange={(e) => setContextInput(e.target.value)}
+                       placeholder="What's happening? e.g., 'Exam in 2 hours', 'Late night study', 'Pre-workout'..."
+                       className="w-full h-24 p-4 pr-12 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-none text-slate-700 text-sm"
+                       maxLength={200}
+                    />
+                    <button 
+                       onClick={toggleRecording}
+                       className={`absolute top-3 right-3 p-2 rounded-full transition-colors ${isRecording ? 'bg-rose-100 text-rose-600 animate-pulse' : 'bg-white text-slate-400 hover:text-emerald-500 shadow-sm'}`}
+                       title="Voice Input"
+                    >
+                       {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                    </button>
+                 </div>
+
+                 {/* Quick Options */}
+                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <button onClick={() => handleContextOption("I have an exam coming up")} className="p-2 bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 rounded-lg text-[10px] sm:text-xs font-bold text-slate-600 flex items-center justify-center gap-1.5 transition-all">
+                       <BookOpen className="w-3 h-3 text-indigo-500" /> Exam
+                    </button>
+                    <button onClick={() => handleContextOption("Late night study session")} className="p-2 bg-white border border-slate-200 hover:border-violet-300 hover:bg-violet-50 rounded-lg text-[10px] sm:text-xs font-bold text-slate-600 flex items-center justify-center gap-1.5 transition-all">
+                       <Moon className="w-3 h-3 text-violet-500" /> Late Night
+                    </button>
+                    <button onClick={() => handleContextOption("Going to gym soon")} className="p-2 bg-white border border-slate-200 hover:border-amber-300 hover:bg-amber-50 rounded-lg text-[10px] sm:text-xs font-bold text-slate-600 flex items-center justify-center gap-1.5 transition-all">
+                       <Dumbbell className="w-3 h-3 text-amber-500" /> Workout
+                    </button>
+                    <button onClick={() => handleContextOption("Have a meeting/presentation soon")} className="p-2 bg-white border border-slate-200 hover:border-blue-300 hover:bg-blue-50 rounded-lg text-[10px] sm:text-xs font-bold text-slate-600 flex items-center justify-center gap-1.5 transition-all">
+                       <Briefcase className="w-3 h-3 text-blue-500" /> Meeting
+                    </button>
+                 </div>
+              </div>
+
+              {/* 3. Goal Selector */}
+              <div className="pt-2 border-t border-slate-100">
                 <GoalSelector 
                   selectedGoal={currentGoal} 
                   onSelect={setCurrentGoal} 
                 />
               </div>
-            </div>
 
-             {error && (
-              <div className="p-4 bg-rose-50 border border-rose-100 rounded-xl flex items-start gap-3 text-rose-700">
-                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                <p>{error}</p>
-              </div>
-            )}
+              {/* Error Display */}
+              {error && (
+                <div className="p-4 bg-rose-50 border border-rose-100 rounded-xl flex items-start gap-3 text-rose-700">
+                  <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                  <p>{error}</p>
+                </div>
+              )}
+
+              {/* 4. Single Analyze Button */}
+              <button 
+                onClick={handleAnalyze}
+                disabled={!fileToAnalyze || isLoading}
+                className={`
+                  w-full sm:w-auto px-12 mx-auto py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all shadow-lg
+                  ${!fileToAnalyze || isLoading
+                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
+                    : 'bg-slate-900 text-white hover:bg-slate-800 shadow-slate-900/20 transform active:scale-[0.98]'
+                  }
+                `}
+              >
+                {isLoading ? (
+                  <>Analyzing...</>
+                ) : (
+                  <>
+                    Analyze Meal <Sparkles className="w-5 h-5" />
+                  </>
+                )}
+              </button>
+            </div>
 
             <div className="text-center">
                <p className="text-xs text-slate-400 max-w-md mx-auto flex items-center justify-center gap-1.5">
@@ -139,7 +257,6 @@ export const EatNowFlow: React.FC<EatNowFlowProps> = ({ onHome }) => {
             </div>
           </div>
         ) : (
-          // Analysis Result View
           <AnalysisView 
             result={result} 
             imagePreview={imagePreview} 

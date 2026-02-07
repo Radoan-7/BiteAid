@@ -5,7 +5,7 @@ import {
   SimulationResult, 
   CanteenGoal, 
   KitchenAccess,
-  TimeAvailable,
+  TimeAvailable, 
   EnergyLevel, 
   CookAtHomeResult,
   PointExplanation,
@@ -13,7 +13,8 @@ import {
   LiveFrameResult,
   FinalCanteenDecision,
   ScannedItem,
-  MissionBrief
+  MissionBrief,
+  DefaultAnalysisResult
 } from "../types";
 
 // Initialize Gemini Client
@@ -37,11 +38,34 @@ export const fileToGenerativePart = async (file: File): Promise<string> => {
 export const analyzeMealImage = async (
   base64Image: string, 
   mimeType: string, 
-  goal: HealthGoal
+  goal: HealthGoal,
+  context?: string
 ): Promise<AnalysisResult> => {
   
   // Upgrade to Pro for Extended Thinking
   const model = "gemini-3-pro-preview";
+
+  const contextInstruction = context ? `
+    USER CONTEXT: "${context}"
+    
+    CRITICAL: The user has provided context. You MUST interpret this to determine the "mode".
+    
+    Modes:
+    - 'exam': if user mentions test, quiz, exam, studying. Timeline: 2 hours. Focus on alertness/crash.
+    - 'latenight': if user mentions night, late, sleep, all-nighter. Timeline: 4 hours. Focus on digestion/sleep.
+    - 'workout': if user mentions gym, exercise, run, sport. Timeline: 1 hour. Focus on fueling/bloating.
+    - 'meeting': if user mentions meeting, presentation, work. Timeline: 3 hours. Focus on breath/focus/energy.
+    - 'default': if context is generic or unclear. Timeline: 6 hours.
+    
+    ADAPTATIONS:
+    - "context_summary": Fill this field based on your interpretation.
+    - "actionable_guidance": "Do This" and "Skip This" MUST be tailored to the specific mode (e.g. for exam, avoid sugar crash).
+    - "after_effect_timeline": Adjust the number of points and duration to match the Mode's timeline (e.g. Exam = 2h total).
+    - "recovery_tip": Make recovery tips relevant to the context (e.g. "Take a breath before exam").
+  ` : `
+    Mode: 'default'
+    Timeline: 6 hours.
+  `;
 
   const systemPrompt = `
     You are BiteAid, a supportive, privacy-first nutrition assistant. 
@@ -52,6 +76,7 @@ export const analyzeMealImage = async (
     CRITICAL CONTEXT:
     The user's specific wellness goal is: "${goal}".
     Tailor all advice to directly support "${goal}".
+    ${contextInstruction}
 
     Output JSON ONLY based on the schema provided.
     
@@ -65,7 +90,7 @@ export const analyzeMealImage = async (
       - "avoid_this": What to skip or remove *right now*. 
       - "consider_balancing": Post-meal adjustments.
 
-    - after_effect_timeline: Generate a granular 6-point timeline (0.5h, 1h, 2h, 3h, 4h, 6h).
+    - after_effect_timeline: Generate a granular timeline.
       - hour_offset: Numeric (e.g. 0.5).
       - scores (0-100): 'energy_score', 'focus_score', 'digestion_score'.
       - feeling_indicators: 1-2 words.
@@ -98,6 +123,17 @@ export const analyzeMealImage = async (
         responseSchema: {
           type: Type.OBJECT,
           properties: {
+            mode: { type: Type.STRING, enum: ['default', 'exam', 'latenight', 'workout', 'meeting'] },
+            context_summary: {
+              type: Type.OBJECT,
+              properties: {
+                mode: { type: Type.STRING, enum: ['default', 'exam', 'latenight', 'workout', 'meeting'] },
+                icon: { type: Type.STRING },
+                title: { type: Type.STRING },
+                understanding: { type: Type.STRING }
+              },
+              required: ["mode", "icon", "title", "understanding"]
+            },
             detected_foods: {
               type: Type.ARRAY,
               items: {
@@ -203,7 +239,7 @@ export const analyzeMealImage = async (
       throw new Error("No response from AI");
     }
 
-    const result = JSON.parse(response.text) as AnalysisResult;
+    const result = JSON.parse(response.text) as DefaultAnalysisResult;
     return result;
 
   } catch (error) {
@@ -272,7 +308,7 @@ export const explainTimelinePoint = async (
 };
 
 export const simulateImpact = async (
-  currentAnalysis: AnalysisResult,
+  currentAnalysis: DefaultAnalysisResult,
   targetItem: string
 ): Promise<SimulationResult> => {
   const model = "gemini-3-flash-preview";
