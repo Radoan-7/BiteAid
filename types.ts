@@ -145,44 +145,17 @@ export interface PointExplanation {
   practical_advice: string;
 }
 
-// --- Smart Canteen Picker Types ---
+// --- NEW TYPES FOR CANTEEN PICKER ---
 
-export type CanteenGoal = 
-  | 'Sustain Energy' 
-  | 'Maximum Focus' 
-  | 'Light & Recovery' 
-  | 'Balanced & Healthy' 
-  | 'Comfort & Variety';
+export type CanteenGoal = 'Sustain Energy' | 'Maximum Focus' | 'Light & Recovery' | 'Balanced & Healthy' | 'Comfort & Variety';
 
-export interface DecisionFactors {
-  goal_match: number;       // 0-100
-  budget_fit: number;       // 0-100
-  visual_clarity: number;   // 0-100
-}
-
-export interface RejectedAlternative {
-  name: string;
-  reason: string;
-  price_estimate?: string;
-}
-
-// NEW: Live Scan Types
 export interface ScannedItem {
-  id: string; // unique internal id
+  id: string; 
   name: string;
-  description: string;
-  score: number; // 1-5 stars based on goal
-  emoji: string; // 🟢 🟡 🔴
-  category: 'Meal' | 'Snack' | 'Drink' | 'Packaged' | 'Other';
+  category?: 'Meal' | 'Snack' | 'Drink' | 'Packaged' | 'Other';
   price_estimate?: string;
-  seen_count: number;
-  confidence?: ConfidenceLevel;
-}
-
-export interface LiveFrameResult {
-  items: ScannedItem[];
-  detected_currency?: string; // e.g. "$", "₹", "€", "Tk"
-  feedback_message: string; // e.g. "Pan right for more options"
+  confidence: ConfidenceLevel;
+  seen_count?: number; 
 }
 
 export interface FinalCanteenDecision {
@@ -191,29 +164,31 @@ export interface FinalCanteenDecision {
     description: string;
     price: string;
     emoji: string;
-    type: 'Single' | 'Combo'; // Identify if it's a pairing
+    type: 'Top Pick' | 'Combo';
   };
-  reasoning: string; // "High protein for focus, fits budget."
-  nutrition_highlights: string[]; // ["Low Oil", "High Fiber"]
-  rejected_alternatives: RejectedAlternative[];
-  detected_currency: string;
-  single_option_note?: string; // e.g. "No other suitable options found matching your filter."
+  reasoning: string;
+  nutrition_highlights: string[];
+  rejected_alternatives: {
+    name: string;
+    reason: string;
+    price_estimate?: string;
+  }[];
 }
-
-export interface MissionBrief {
-  seek: string[];
-  avoid: string[];
-}
-
-// --- Fallback Journey Types ---
 
 export type KitchenAccess = 'Yes' | 'Limited' | 'No';
-export type TimeAvailable = '~10 min' | '~20 min' | 'No rush';
-export type EnergyLevel = 'Low' | 'Okay' | 'High';
+export type TimeAvailable = '~10 min' | '~20 min' | '30+ min';
+export type EnergyLevel = 'High' | 'Okay' | 'Low';
 
 export interface CookAtHomeResult {
   dish_name: string;
   why_it_fits: string;
+  ingredients_needed: string[];
   instructions: string[];
-  substitutions?: string;
+  time_estimate: string;
+}
+
+export interface MissionBrief {
+  goal: CanteenGoal;
+  seek: string[];
+  avoid: string[];
 }

@@ -1,15 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Header } from './Header';
 import { UploadZone } from './UploadZone';
-import { GoalSelector } from './GoalSelector';
 import { AnalysisView } from './AnalysisView';
 import { AnalysisResult, HealthGoal } from '../types';
 import { analyzeMealImage, fileToGenerativePart } from '../services/geminiService';
-import { Info, AlertCircle, Mic, MicOff, BookOpen, Moon, Dumbbell, Briefcase, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Info, AlertCircle, Mic, MicOff, BookOpen, Moon, Dumbbell, Briefcase, Sparkles, CheckCircle2, Leaf, Zap, Activity } from 'lucide-react';
 
 interface EatNowFlowProps {
   onHome: () => void;
 }
+
+const GOALS: { id: HealthGoal; label: string; icon: React.ReactNode }[] = [
+  { id: 'General Wellness', label: 'General', icon: <Leaf className="w-4 h-4" /> },
+  { id: 'Maintain Energy', label: 'Energy', icon: <Zap className="w-4 h-4" /> },
+  { id: 'Reduce Fatigue', label: 'Fatigue', icon: <Activity className="w-4 h-4" /> },
+  { id: 'Avoid Bloating', label: 'Digestion', icon: <Sparkles className="w-4 h-4" /> },
+  { id: 'Improve Sleep', label: 'Sleep', icon: <Moon className="w-4 h-4" /> },
+];
 
 export const EatNowFlow: React.FC<EatNowFlowProps> = ({ onHome }) => {
   const [currentGoal, setCurrentGoal] = useState<HealthGoal>('General Wellness');
@@ -211,12 +218,32 @@ export const EatNowFlow: React.FC<EatNowFlowProps> = ({ onHome }) => {
                  </div>
               </div>
 
-              {/* 3. Goal Selector */}
+              {/* 3. Goal Selector (Inlined) */}
               <div className="pt-2 border-t border-slate-100">
-                <GoalSelector 
-                  selectedGoal={currentGoal} 
-                  onSelect={setCurrentGoal} 
-                />
+                <div className="w-full">
+                  <label className="block text-sm font-medium text-slate-700 mb-3 text-center">
+                    What's your focus for this meal?
+                  </label>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {GOALS.map((goal) => (
+                      <button
+                        key={goal.id}
+                        onClick={() => setCurrentGoal(goal.id)}
+                        className={`
+                          flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all
+                          border 
+                          ${currentGoal === goal.id 
+                            ? 'bg-slate-800 text-white border-slate-800 shadow-md transform scale-105' 
+                            : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                          }
+                        `}
+                      >
+                        {goal.icon}
+                        {goal.id}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               {/* Error Display */}

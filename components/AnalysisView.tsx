@@ -5,14 +5,12 @@ import {
   ConfidenceLevel, 
   SimulationResult, 
   TimelineCheckpoint, 
-  PointExplanation,
   DefaultAnalysisResult,
   ExamAnalysisResult,
   MeetingAnalysisResult,
   WorkoutAnalysisResult
 } from '../types';
-import { simulateImpact, explainTimelinePoint } from '../services/geminiService';
-import { AnalysisGraph } from './AnalysisGraph';
+import { simulateImpact } from '../services/geminiService';
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
 import { 
@@ -21,7 +19,6 @@ import {
   Info, 
   Download, 
   Loader2, 
-  HelpCircle, 
   X, 
   Sparkles, 
   ArrowUpRight, 
@@ -37,7 +34,10 @@ import {
   Briefcase,
   Dumbbell,
   Clock,
-  Siren
+  Siren,
+  Wind,
+  Flame,
+  BatteryCharging
 } from 'lucide-react';
 
 // --- SUB-COMPONENTS FOR NEW MODES ---
@@ -69,181 +69,339 @@ const ThinkingProcess: React.FC<{ steps: string[] }> = ({ steps }) => {
   );
 };
 
+// --- RICH CONTEXT COMPONENT: EXAM MODE ---
 const ExamView: React.FC<{ data: ExamAnalysisResult }> = ({ data }) => {
   const isCritical = data.exam_collision_alert.risk_level === 'CRITICAL' || data.exam_collision_alert.risk_level === 'HIGH';
   
+  // Simulated Graph Data for Exam Mode (Focus vs Energy)
+  const graphData = [
+    { hour: 0, focus: 80, energy: 90 },
+    { hour: 0.5, focus: 85, energy: 85 },
+    { hour: 1, focus: 90, energy: 70 },
+    { hour: 1.5, focus: 75, energy: 60 },
+    { hour: 2, focus: 60, energy: 50 }, // Crash point
+  ];
+
   return (
-    <div className="space-y-6">
-      {/* 1. Collision Alert */}
-      <div className={`p-6 rounded-2xl border-2 ${isCritical ? 'bg-rose-50 border-rose-200' : 'bg-emerald-50 border-emerald-200'}`}>
-         <div className="flex items-start gap-4">
-            <div className={`p-3 rounded-full ${isCritical ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
-               {isCritical ? <Siren className="w-8 h-8 animate-pulse" /> : <CheckCircle2 className="w-8 h-8" />}
-            </div>
-            <div>
-               <h3 className={`text-sm font-bold uppercase tracking-widest mb-1 ${isCritical ? 'text-rose-600' : 'text-emerald-600'}`}>
-                 Risk Level: {data.exam_collision_alert.risk_level}
-               </h3>
-               <h2 className="text-xl font-bold text-slate-900 mb-2">{data.exam_collision_alert.alert_message}</h2>
-               <div className="flex items-center gap-4 text-sm font-mono text-slate-600">
-                  <span>Exam: {data.exam_collision_alert.exam_time}</span>
-                  <span>Crash: {data.exam_collision_alert.predicted_crash_time}</span>
-               </div>
-            </div>
+    <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+      
+      {/* 1. HERO ALERT CARD */}
+      <div className={`p-6 rounded-3xl border-2 shadow-lg relative overflow-hidden ${isCritical ? 'bg-rose-50 border-rose-200 shadow-rose-100' : 'bg-emerald-50 border-emerald-200 shadow-emerald-100'}`}>
+         {/* Background Decoration */}
+         <div className={`absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl opacity-50 -mr-10 -mt-10 ${isCritical ? 'bg-rose-200' : 'bg-emerald-200'}`}></div>
+         
+         <div className="relative z-10">
+             <div className="flex items-start gap-4 mb-4">
+                <div className={`p-3 rounded-2xl shadow-sm ${isCritical ? 'bg-white text-rose-600' : 'bg-white text-emerald-600'}`}>
+                   {isCritical ? <Siren className="w-8 h-8 animate-pulse" /> : <CheckCircle2 className="w-8 h-8" />}
+                </div>
+                <div>
+                   <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${isCritical ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                        {data.exam_collision_alert.risk_level} RISK
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Collision Detection</span>
+                   </div>
+                   <h2 className={`text-xl font-bold leading-tight ${isCritical ? 'text-rose-900' : 'text-emerald-900'}`}>
+                     {data.exam_collision_alert.alert_message}
+                   </h2>
+                </div>
+             </div>
+
+             {/* Time Collision Timeline */}
+             <div className="bg-white/60 rounded-xl p-4 backdrop-blur-sm border border-white/50 flex items-center justify-between gap-2">
+                 <div className="text-center">
+                    <span className="block text-xs font-bold text-slate-400 uppercase">Now</span>
+                    <span className="block text-lg font-bold text-slate-700">Meal</span>
+                 </div>
+                 <div className="flex-1 h-1 bg-slate-200 rounded-full relative mx-2">
+                    <div className={`absolute top-1/2 left-[70%] -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-sm ${isCritical ? 'bg-rose-500' : 'bg-emerald-500'}`}></div>
+                 </div>
+                 <div className="text-center">
+                    <span className="block text-xs font-bold text-rose-500 uppercase">Crash @</span>
+                    <span className="block text-lg font-bold text-rose-600">{data.exam_collision_alert.predicted_crash_time}</span>
+                 </div>
+                 <div className="flex-1 h-1 bg-slate-200 rounded-full relative mx-2"></div>
+                 <div className="text-center">
+                    <span className="block text-xs font-bold text-indigo-500 uppercase">Exam</span>
+                    <span className="block text-lg font-bold text-indigo-600">{data.exam_collision_alert.exam_time}</span>
+                 </div>
+             </div>
          </div>
       </div>
 
-      {/* 2. Strategy Timeline */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-         <div className="p-4 bg-slate-50 border-b border-slate-100 font-bold text-slate-700 flex items-center gap-2">
-            <Clock className="w-4 h-4" /> Exam Survival Strategy
-         </div>
-         <div className="divide-y divide-slate-100">
-            {data.exam_survival_strategy.map((item, i) => (
-               <div key={i} className="p-4 flex gap-4">
-                  <div className="w-16 shrink-0 text-sm font-bold text-slate-500 pt-1">{item.time}</div>
-                  <div>
-                     <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-xs px-2 py-0.5 rounded font-bold ${item.priority === 'CRITICAL' ? 'bg-rose-100 text-rose-700' : 'bg-blue-100 text-blue-700'}`}>
-                           {item.priority}
-                        </span>
-                        <h4 className="font-bold text-slate-900">{item.action}</h4>
-                     </div>
-                     <p className="text-sm text-slate-600">{item.reasoning}</p>
-                  </div>
-               </div>
-            ))}
-         </div>
-      </div>
-
-      {/* 3. Brain Performance */}
+      {/* 2. COGNITIVE DASHBOARD */}
       <div className="grid grid-cols-2 gap-4">
-         <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
-            <div className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-2">Focus Impact</div>
-            <div className="text-lg font-bold text-indigo-900 leading-snug">{data.cognitive_impact_summary.focus_impact}</div>
+         {/* Focus Gauge */}
+         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden">
+             <div className="flex justify-between items-start mb-2">
+                <Brain className="w-5 h-5 text-indigo-500" />
+                <span className="text-[10px] font-bold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">BRAIN</span>
+             </div>
+             <div className="text-2xl font-bold text-slate-900 mb-1">Focus</div>
+             <div className="text-sm font-medium text-slate-500 leading-tight">
+               {data.cognitive_impact_summary.focus_impact}
+             </div>
+             {/* Tiny Graph */}
+             <div className="mt-4 flex items-end gap-1 h-8">
+                {graphData.map((d, i) => (
+                   <div key={i} style={{ height: `${d.focus}%` }} className="flex-1 bg-indigo-100 rounded-t-sm relative group">
+                      <div className="absolute bottom-0 w-full bg-indigo-500 transition-all" style={{ height: '100%', opacity: i/5 + 0.2 }}></div>
+                   </div>
+                ))}
+             </div>
          </div>
-         <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
-            <div className="text-xs font-bold text-amber-500 uppercase tracking-widest mb-2">Brain Fog Risk</div>
-            <div className="text-lg font-bold text-amber-900">{data.cognitive_impact_summary.brain_fog_risk}</div>
+
+         {/* Brain Fog Indicator */}
+         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden">
+             <div className="flex justify-between items-start mb-2">
+                <Wind className="w-5 h-5 text-amber-500" />
+                <span className="text-[10px] font-bold bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full">CLARITY</span>
+             </div>
+             <div className="text-2xl font-bold text-slate-900 mb-1">Fog Risk</div>
+             <div className="text-sm font-medium text-slate-500 leading-tight">
+               {data.cognitive_impact_summary.brain_fog_risk}
+             </div>
+             <div className="mt-4 w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                <div className="h-full bg-amber-400 w-[60%] rounded-full"></div>
+             </div>
+         </div>
+      </div>
+
+      {/* 3. STRATEGY TIMELINE (Enhanced) */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+         <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="font-bold text-slate-900 flex items-center gap-2">
+               <Clock className="w-5 h-5 text-blue-500" /> Exam Survival Strategy
+            </h3>
+            <span className="text-xs font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded">2 HOUR PLAN</span>
+         </div>
+         <div className="relative">
+            {/* Vertical Line */}
+            <div className="absolute left-8 top-6 bottom-6 w-0.5 bg-slate-100"></div>
+            
+            <div className="divide-y divide-slate-50">
+               {data.exam_survival_strategy.map((item, i) => (
+                  <div key={i} className="p-5 flex gap-5 relative group hover:bg-slate-50 transition-colors">
+                     {/* Time Bubble */}
+                     <div className="z-10 w-14 shrink-0 flex flex-col items-center">
+                        <div className={`w-3 h-3 rounded-full border-2 border-white shadow-sm mb-1 ${item.priority === 'CRITICAL' ? 'bg-rose-500' : 'bg-blue-400'}`}></div>
+                        <span className="text-xs font-bold text-slate-400 font-mono">{item.time}</span>
+                     </div>
+                     
+                     {/* Content */}
+                     <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1.5">
+                           {item.priority === 'CRITICAL' && <span className="text-[10px] font-bold bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded">MUST DO</span>}
+                           <h4 className={`font-bold text-sm ${item.priority === 'CRITICAL' ? 'text-rose-900' : 'text-slate-900'}`}>{item.action}</h4>
+                        </div>
+                        <p className="text-sm text-slate-600 leading-relaxed">{item.reasoning}</p>
+                     </div>
+                  </div>
+               ))}
+            </div>
          </div>
       </div>
     </div>
   );
 };
 
+// --- RICH CONTEXT COMPONENT: MEETING MODE ---
 const MeetingView: React.FC<{ data: MeetingAnalysisResult }> = ({ data }) => {
+  const readiness = data.professional_performance_alert.readiness_score;
+  const isRisky = data.professional_performance_alert.risk_level !== 'OPTIMAL';
+
   return (
-    <div className="space-y-6">
-      {/* 1. Professional Alert */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-         <div className="flex justify-between items-start mb-4">
+    <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+      
+      {/* 1. PROFESSIONAL SCORECARD */}
+      <div className="bg-slate-900 text-white p-6 rounded-3xl shadow-xl shadow-slate-900/10 relative overflow-hidden">
+         {/* Abstract BG */}
+         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+         
+         <div className="relative z-10 flex items-center justify-between mb-8">
             <div>
-               <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">Meeting Readiness</h3>
-               <div className="text-3xl font-bold text-slate-900">{data.professional_performance_alert.readiness_score}/100</div>
+               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Professional Readiness</h3>
+               <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-bold tracking-tight">{readiness}</span>
+                  <span className="text-slate-500 font-medium">/100</span>
+               </div>
             </div>
-            <div className={`px-3 py-1 rounded-full text-xs font-bold ${data.professional_performance_alert.risk_level === 'OPTIMAL' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+            <div className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide border ${isRisky ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'}`}>
                {data.professional_performance_alert.risk_level}
             </div>
          </div>
-         <div className="space-y-2">
+
+         {/* Concerns List */}
+         <div className="space-y-3 bg-white/5 rounded-2xl p-4 border border-white/10">
             {data.professional_performance_alert.main_concerns.map((concern, i) => (
-               <div key={i} className="flex items-center gap-2 text-sm text-slate-700">
-                  <AlertTriangle className="w-4 h-4 text-amber-500" />
+               <div key={i} className="flex items-center gap-3 text-sm text-slate-200">
+                  <div className="p-1 rounded bg-amber-500/20 text-amber-400">
+                     <AlertTriangle className="w-3.5 h-3.5" />
+                  </div>
                   {concern}
                </div>
             ))}
          </div>
       </div>
 
-      {/* 2. Social Metrics */}
+      {/* 2. SOCIAL VITALS GRID */}
       <div className="grid grid-cols-3 gap-3">
-         <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-            <div className="text-[10px] font-bold text-slate-400 uppercase">Breath</div>
-            <div className="font-bold text-slate-800">{data.social_performance_metrics.breath_freshness}</div>
+         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center">
+            <div className="p-2 bg-blue-50 text-blue-500 rounded-xl mb-2">
+               <Wind className="w-5 h-5" />
+            </div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Breath</div>
+            <div className="font-bold text-slate-800 text-sm leading-tight">{data.social_performance_metrics.breath_freshness}</div>
          </div>
-         <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-            <div className="text-[10px] font-bold text-slate-400 uppercase">Bloating</div>
-            <div className="font-bold text-slate-800">{data.social_performance_metrics.bloating_risk}</div>
+         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center">
+            <div className="p-2 bg-purple-50 text-purple-500 rounded-xl mb-2">
+               <Activity className="w-5 h-5" />
+            </div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Bloating</div>
+            <div className="font-bold text-slate-800 text-sm leading-tight">{data.social_performance_metrics.bloating_risk}</div>
          </div>
-         <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-            <div className="text-[10px] font-bold text-slate-400 uppercase">Fatigue</div>
-            <div className="font-bold text-slate-800">{data.social_performance_metrics.visible_fatigue}</div>
+         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center">
+            <div className="p-2 bg-orange-50 text-orange-500 rounded-xl mb-2">
+               <BatteryCharging className="w-5 h-5" />
+            </div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Energy</div>
+            <div className="font-bold text-slate-800 text-sm leading-tight">{data.social_performance_metrics.visible_fatigue}</div>
          </div>
       </div>
 
-      {/* 3. Rescue Plan */}
-      <div className="bg-blue-50/50 rounded-2xl border border-blue-100 p-5">
-         <h3 className="font-bold text-blue-900 mb-4 flex items-center gap-2">
-            <Briefcase className="w-4 h-4" /> Image Rescue Plan
-         </h3>
-         <div className="space-y-3">
-            {data.professional_image_rescue.map((step, i) => (
-               <div key={i} className="flex gap-3 text-sm">
-                  <span className="font-mono text-blue-500 font-bold w-12 shrink-0">{step.time}</span>
-                  <div>
-                     <p className="font-bold text-slate-800">{step.action}</p>
-                     <p className="text-slate-500 text-xs">{step.impact}</p>
-                  </div>
-               </div>
-            ))}
+      {/* 3. RESCUE PLAN TIMELINE */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+         <div className="p-4 bg-slate-50 border-b border-slate-100 font-bold text-slate-700 flex items-center gap-2">
+            <Briefcase className="w-4 h-4 text-blue-600" /> Image Rescue Plan
+         </div>
+         <div className="relative p-5">
+             {/* Dashed Line */}
+             <div className="absolute left-[29px] top-6 bottom-6 w-0.5 border-l-2 border-dashed border-slate-200"></div>
+
+             <div className="space-y-6">
+                {data.professional_image_rescue.map((step, i) => (
+                   <div key={i} className="flex gap-4 relative">
+                      {/* Dot */}
+                      <div className="z-10 w-2.5 h-2.5 mt-1.5 rounded-full bg-blue-500 border-2 border-white shadow-sm shrink-0 ml-[18px]"></div>
+                      
+                      <div className="flex-1">
+                         <div className="flex items-center justify-between mb-1">
+                            <h4 className="font-bold text-slate-900 text-sm">{step.action}</h4>
+                            <span className="text-xs font-mono font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded">{step.time}</span>
+                         </div>
+                         <p className="text-xs text-slate-500">{step.impact}</p>
+                      </div>
+                   </div>
+                ))}
+             </div>
          </div>
       </div>
     </div>
   );
 };
 
+// --- RICH CONTEXT COMPONENT: WORKOUT MODE ---
 const WorkoutView: React.FC<{ data: WorkoutAnalysisResult }> = ({ data }) => {
   const readiness = data.workout_readiness_assessment.readiness_score;
-  const color = readiness >= 8 ? 'text-emerald-600' : readiness >= 5 ? 'text-amber-600' : 'text-rose-600';
+  const color = readiness >= 8 ? 'text-emerald-500' : readiness >= 5 ? 'text-amber-500' : 'text-rose-500';
+  const strokeColor = readiness >= 8 ? '#10b981' : readiness >= 5 ? '#f59e0b' : '#f43f5e';
   
   return (
-    <div className="space-y-6">
-       {/* 1. Readiness Score */}
-       <div className="flex items-center gap-6 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <div className="relative w-20 h-20 flex items-center justify-center shrink-0">
+    <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+       {/* 1. READINESS METER */}
+       <div className="bg-white p-6 rounded-3xl shadow-lg shadow-slate-200/50 border border-slate-100 flex items-center gap-8 relative overflow-hidden">
+          {/* Decorative BG */}
+          <div className="absolute right-0 top-0 w-32 h-full bg-slate-50 skew-x-12 -mr-8"></div>
+
+          <div className="relative w-24 h-24 flex items-center justify-center shrink-0">
              <svg className="w-full h-full transform -rotate-90">
-                <circle cx="40" cy="40" r="36" stroke="#f1f5f9" strokeWidth="8" fill="transparent" />
-                <circle cx="40" cy="40" r="36" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray={`${readiness * 22.6} 226`} className={color} />
+                <circle cx="48" cy="48" r="42" stroke="#f1f5f9" strokeWidth="8" fill="transparent" />
+                <circle 
+                  cx="48" cy="48" r="42" 
+                  stroke={strokeColor} 
+                  strokeWidth="8" 
+                  fill="transparent" 
+                  strokeDasharray={`${readiness * 26.4} 264`} 
+                  strokeLinecap="round"
+                />
              </svg>
-             <span className={`absolute text-2xl font-bold ${color}`}>{readiness}</span>
-          </div>
-          <div>
-             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Workout Readiness</h3>
-             <p className="font-bold text-slate-900 text-lg leading-tight">{data.workout_readiness_assessment.main_issue}</p>
-             <span className="inline-block mt-1 text-xs font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600">
-                Verdict: {data.workout_readiness_assessment.fuel_timing_verdict}
-             </span>
-          </div>
-       </div>
-
-       {/* 2. Fuel Status */}
-       <div className="bg-slate-900 text-slate-200 p-5 rounded-2xl">
-          <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-             <Zap className="w-4 h-4" /> Fuel Tank Analysis
-          </h3>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-             <div>
-                <span className="text-slate-500 block text-xs mb-1">Carbs (Quick Energy)</span>
-                <span className="font-bold text-white">{data.energy_availability_window.carb_availability}</span>
+             <div className="absolute flex flex-col items-center">
+                <span className={`text-3xl font-black ${color}`}>{readiness}</span>
+                <span className="text-[9px] font-bold text-slate-400 uppercase">SCORE</span>
              </div>
-             <div>
-                <span className="text-slate-500 block text-xs mb-1">Digestion Status</span>
-                <span className="font-bold text-white">{data.energy_availability_window.fat_digestion_status}</span>
+          </div>
+          
+          <div className="relative z-10 flex-1">
+             <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full uppercase tracking-wide">
+                  Analysis
+                </span>
+             </div>
+             <h3 className="font-bold text-slate-900 text-lg leading-tight mb-2">
+               {data.workout_readiness_assessment.main_issue}
+             </h3>
+             <div className="flex items-center gap-2 text-sm font-medium text-slate-600 bg-slate-50 px-3 py-1.5 rounded-lg w-fit">
+                <Clock className="w-4 h-4 text-slate-400" />
+                Verdict: <span className="text-slate-900 font-bold">{data.workout_readiness_assessment.fuel_timing_verdict}</span>
              </div>
           </div>
        </div>
 
-       {/* 3. Optimization */}
-       <div className="bg-emerald-50 border border-emerald-100 p-5 rounded-2xl">
-          <h3 className="font-bold text-emerald-900 mb-2 flex items-center gap-2">
-             <Dumbbell className="w-4 h-4" /> Optimization
-          </h3>
-          <p className="text-sm text-emerald-800 mb-3">{data.performance_optimization.best_option}</p>
-          {data.performance_optimization.intensity_adjustment && (
-             <div className="text-xs bg-white/50 p-2 rounded text-emerald-700 font-medium">
-                Suggestion: {data.performance_optimization.intensity_adjustment}
+       {/* 2. FUEL GAUGE CARD */}
+       <div className="bg-slate-900 text-white rounded-3xl p-6 relative overflow-hidden shadow-xl shadow-slate-900/10">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+
+          <div className="flex items-center gap-2 mb-6 text-emerald-400">
+             <Flame className="w-5 h-5 fill-emerald-500/20" />
+             <span className="text-xs font-bold uppercase tracking-widest">Fuel Tank Analysis</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-8 relative z-10">
+             <div>
+                <span className="text-slate-400 text-xs font-bold uppercase tracking-wider block mb-2">Carb Availability</span>
+                <div className="text-lg font-bold text-white mb-1">{data.energy_availability_window.carb_availability}</div>
+                <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                   <div className="h-full bg-emerald-500 w-[70%] rounded-full"></div>
+                </div>
              </div>
-          )}
+             <div>
+                <span className="text-slate-400 text-xs font-bold uppercase tracking-wider block mb-2">Digestion Status</span>
+                <div className="text-lg font-bold text-white mb-1">{data.energy_availability_window.fat_digestion_status}</div>
+                <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                   <div className="h-full bg-amber-500 w-[40%] rounded-full"></div>
+                </div>
+             </div>
+          </div>
+       </div>
+
+       {/* 3. OPTIMIZATION STRATEGY */}
+       <div className="bg-white border border-emerald-100 rounded-3xl p-6 shadow-sm relative overflow-hidden">
+          <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-emerald-500"></div>
+          
+          <h3 className="font-bold text-emerald-900 mb-4 flex items-center gap-2">
+             <Dumbbell className="w-5 h-5 text-emerald-500" /> Performance Optimization
+          </h3>
+          
+          <div className="space-y-4">
+             <div className="flex gap-4">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 text-emerald-600 font-bold text-sm">1</div>
+                <div>
+                   <h4 className="font-bold text-slate-800 text-sm mb-1">Best Strategy</h4>
+                   <p className="text-sm text-slate-600 leading-relaxed">{data.performance_optimization.best_option}</p>
+                </div>
+             </div>
+             
+             {data.performance_optimization.intensity_adjustment && (
+                <div className="flex gap-4">
+                   <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0 text-amber-600 font-bold text-sm">2</div>
+                   <div>
+                      <h4 className="font-bold text-slate-800 text-sm mb-1">Intensity Check</h4>
+                      <p className="text-sm text-slate-600 leading-relaxed">{data.performance_optimization.intensity_adjustment}</p>
+                   </div>
+                </div>
+             )}
+          </div>
        </div>
     </div>
   );
@@ -265,10 +423,6 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
   const [simulatingItem, setSimulatingItem] = useState<string | null>(null);
   const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
   const [selectedMetricIndex, setSelectedMetricIndex] = useState<number | null>(null);
-  const [explainingPoint, setExplainingPoint] = useState<TimelineCheckpoint | null>(null);
-  const [explanationResult, setExplanationResult] = useState<PointExplanation | null>(null);
-  const [isExplaining, setIsExplaining] = useState(false);
-  const [expandedTimeline, setExpandedTimeline] = useState(false);
 
   // Helper for Default View
   const handleSimulate = async (item: string) => {
@@ -291,24 +445,6 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
       alert("Failed to simulate impact. Please try again.");
     } finally {
       setSimulatingItem(null);
-    }
-  };
-
-  const handlePointClick = async (point: TimelineCheckpoint) => {
-    // Similar check relaxation for point click explanation
-    if (!('detected_foods' in result)) return;
-
-    setExplainingPoint(point);
-    setExplanationResult(null);
-    setIsExplaining(true);
-    try {
-      const detectedFoods = (result as DefaultAnalysisResult).detected_foods.map(f => f.text);
-      const explanation = await explainTimelinePoint(point, detectedFoods);
-      setExplanationResult(explanation);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsExplaining(false);
     }
   };
 
@@ -341,6 +477,26 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
     }
   };
 
+  // Helper to get Badge Text
+  const getBadgeText = (res: AnalysisResult) => {
+    // 1. Prefer Context Summary from AI (New Flow)
+    if ('context_summary' in res && res.context_summary) {
+       const { mode, icon, title } = res.context_summary;
+       if (mode !== 'default') {
+          return `${icon} ${title}`;
+       }
+    }
+    
+    // 2. Fallback for Legacy Modes or Default
+    switch (res.mode) {
+      case 'exam': return "📚 EXAM FOCUS";
+      case 'latenight': return "🌙 LATE NIGHT";
+      case 'workout': return "💪 PRE-WORKOUT";
+      case 'meeting': return "💼 MEETING PREP";
+      default: return "ANALYSIS COMPLETE";
+    }
+  };
+
   // --- RENDER DEFAULT VIEW (Updated Logic) ---
   const renderDefaultView = (data: DefaultAnalysisResult) => {
     const t0 = data.after_effect_timeline?.[0]; 
@@ -349,27 +505,9 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
     const hasTimelineData = t0 && t1 && t2;
     const quickFix = data.actionable_guidance.consider_balancing[0]?.text;
     
-    // Determine timeline duration label based on data length or offsets
-    const maxHour = Math.max(...data.after_effect_timeline.map(d => d.hour_offset), 6);
-    const timelineTitle = maxHour <= 2 ? "2-Hour Exam Timeline" : maxHour <= 4 ? "4-Hour Timeline" : "Full 6-Hour Timeline";
-
     return (
       <div className="space-y-6">
-        {/* NEW: Context Confirmation Card */}
-        {data.context_summary && data.context_summary.mode !== 'default' && (
-           <div className="bg-slate-900 text-white p-5 rounded-2xl shadow-lg border border-slate-700 animate-in slide-in-from-top-4">
-              <div className="flex items-center gap-3 mb-2">
-                 <span className="text-2xl">{data.context_summary.icon}</span>
-                 <h3 className="font-bold text-sm tracking-widest uppercase text-emerald-400">
-                    {data.context_summary.title}
-                 </h3>
-              </div>
-              <p className="text-slate-300 text-sm italic">
-                 "{data.context_summary.understanding}"
-              </p>
-           </div>
-        )}
-
+        
         {/* Action Cards */}
         <div className="grid md:grid-cols-2 gap-4">
            <div className="bg-emerald-50/40 border border-emerald-100 rounded-2xl p-6">
@@ -437,30 +575,6 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
             </div>
           </div>
         )}
-
-        {/* Collapsible Full Graph */}
-        <div className="space-y-3">
-           <div className="border border-slate-200 rounded-2xl bg-white transition-all shadow-sm">
-             <button 
-               onClick={() => setExpandedTimeline(!expandedTimeline)}
-               className="w-full flex items-center justify-between p-5 bg-white hover:bg-slate-50 transition-colors group rounded-2xl"
-             >
-               <div className="flex items-center gap-3">
-                  <Activity className="w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors" />
-                  <span className="font-bold text-slate-700">{timelineTitle}</span>
-               </div>
-               {expandedTimeline ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
-             </button>
-             
-             {expandedTimeline && (
-               <div className="p-6 border-t border-slate-100 animate-in slide-in-from-top-2 duration-300">
-                  <div className="h-64 sm:h-72 w-full mb-6">
-                     <AnalysisGraph data={data.after_effect_timeline} onPointClick={handlePointClick} />
-                  </div>
-               </div>
-             )}
-           </div>
-        </div>
       </div>
     );
   };
@@ -485,8 +599,8 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
                   <div className="relative h-64 md:h-full w-full rounded-2xl overflow-hidden bg-slate-50 shadow-sm border border-slate-100">
                     <img src={imagePreview} alt="Analyzed meal" className="absolute inset-0 w-full h-full object-cover" />
                     {/* Badge */}
-                    <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-sm text-white text-xs font-bold px-3 py-1 rounded-full uppercase">
-                       {result.mode === 'none' ? 'General' : result.mode} Analysis
+                    <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-sm text-white text-xs font-bold px-3 py-1 rounded-full uppercase shadow-sm">
+                       {getBadgeText(result)}
                     </div>
                   </div>
                 </div>
@@ -611,55 +725,6 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
           Analyze Another
         </button>
       </div>
-
-      {/* --- MODALS (Only for Default/Context Mode) --- */}
-      {/* Explanation Modal */}
-      {explainingPoint && createPortal(
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 h-[100dvh] w-screen">
-           <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-3xl transition-opacity" onClick={() => setExplainingPoint(null)} />
-           <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden relative animate-in zoom-in-95 duration-300 z-10 m-auto">
-              <div className="p-6 pb-2 border-b border-slate-100 flex justify-between items-start bg-slate-50/50">
-                 <div>
-                    <h3 className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-1 flex items-center gap-1">
-                       <Brain className="w-3 h-3" /> Quick Insight
-                    </h3>
-                    <h2 className="text-xl font-bold text-slate-900">
-                       T+{explainingPoint.hour_offset}h Check
-                    </h2>
-                 </div>
-                 <button onClick={() => setExplainingPoint(null)} className="p-1 text-slate-400 hover:text-slate-600">
-                    <X className="w-5 h-5" />
-                 </button>
-              </div>
-              <div className="p-6 min-h-[160px]">
-                 {isExplaining || !explanationResult ? (
-                    <div className="flex flex-col items-center justify-center space-y-4 py-4">
-                       <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-                       <p className="text-sm font-medium text-slate-500 animate-pulse">Thinking...</p>
-                    </div>
-                 ) : (
-                    <div className="space-y-5">
-                       <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl">
-                          <p className="text-indigo-900 font-bold text-lg leading-tight text-center">"{explanationResult.insight}"</p>
-                       </div>
-                       <div className="space-y-1">
-                          <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Why?</h4>
-                          <p className="text-sm text-slate-600 leading-relaxed">{explanationResult.biological_reasoning}</p>
-                       </div>
-                       <div className="space-y-1">
-                          <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quick Fix</h4>
-                          <div className="flex items-center gap-3 text-sm font-medium text-slate-800 bg-emerald-50 border border-emerald-100 p-3 rounded-lg">
-                             <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-                             {explanationResult.practical_advice}
-                          </div>
-                       </div>
-                    </div>
-                 )}
-              </div>
-           </div>
-        </div>,
-        document.body
-      )}
 
       {/* Impact Simulation Modal */}
       {simulationResult && createPortal(
