@@ -6,7 +6,7 @@
 
 **Eat Now, Fix Later**
 
-[![Try BiteAid](https://img.shields.io/badge/Try-BiteAid-emerald?style=for-the-badge)](https://ai.studio/apps/drive/1HMaj_lwAOwnCdfhxL97YWNTs38mNX0dv)
+[![Try BiteAid](https://img.shields.io/badge/Try-BiteAid-emerald?style=for-the-badge)](https://ai.studio/apps/drive/1HMaj_lwAOwnCdfhxL97YWNTs38mNX0dv?fullscreenApplet=true)
 
 </div>
 
@@ -257,7 +257,7 @@ Different analysis per context:
 ## 🚀 Try It Now
 
 ### Live Demo
-👉 **[Launch BiteAid](https://ai.studio/apps/drive/1HMaj_lwAOwnCdfhxL97YWNTs38mNX0dv)**
+👉 **[Launch BiteAid](https://ai.studio/apps/drive/1HMaj_lwAOwnCdfhxL97YWNTs38mNX0dv?fullscreenApplet=true)**
 
 ### Run Locally
 
@@ -463,7 +463,7 @@ Special thanks to:
 
 ## 📬 Contact & Feedback
 
-- **Try it:** [BiteAid on AI Studio](https://ai.studio/apps/drive/1HMaj_lwAOwnCdfhxL97YWNTs38mNX0dv)
+- **Try it:** [BiteAid on AI Studio](https://ai.studio/apps/drive/1HMaj_lwAOwnCdfhxL97YWNTs38mNX0dv?fullscreenApplet=true)
 - **Issues:** Found a bug? Please report it
 - **Suggestions:** Ideas for improvement? Let us know
 
@@ -471,12 +471,13 @@ Special thanks to:
 
 <div align="center">
 
-**Built with ❤️ using Gemini 3**
+**Built using Gemini 3**
 
 **Eat Now, Fix Later**
 
 Privacy First • No Data Stored • No Judgment • No Tracking
 
-[Try BiteAid](https://ai.studio/apps/drive/1HMaj_lwAOwnCdfhxL97YWNTs38mNX0dv)
+[Try BiteAid](https://ai.studio/apps/drive/1HMaj_lwAOwnCdfhxL97YWNTs38mNX0dv?fullscreenApplet=true)
+
 
 </div>
