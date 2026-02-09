@@ -4,33 +4,52 @@
 
 **The first context-aware food AI that adapts to your life**
 
-Same meal. Different situation. Different advice.
+**Eat Now, Fix Later**
 
-Eat Now, Fix Later
+[![Try BiteAid](https://img.shields.io/badge/Try-BiteAid-emerald?style=for-the-badge)](https://ai.studio/apps/drive/1HMaj_lwAOwnCdfhxL97YWNTs38mNX0dv)
+
 </div>
 
 ---
 
 ## 🎯 The Problem
 
-Students and young professionals face **decision paralysis** 3 times a day at meals.
+**Students eat first, regret later.**
 
-Worse: **the same food affects you differently** based on when and why you're eating:
-- Coffee before an exam ≠ coffee before sleep
-- Heavy lunch before a workout ≠ heavy lunch on a lazy Sunday
-- Fried rice at 12pm ≠ fried rice at 11pm
+You're hungry. You're stressed. You grab whatever looks good.
 
-**Current food apps don't understand context.**
+Then 90 minutes later:
+- **Crash during your exam** — that fried lunch hit at exactly the wrong time
+- **Can't sleep at 2am** — the late-night pizza is still digesting
+- **Sluggish at the gym** — heavy meal killed your workout
+
+**You knew it was a bad idea. You ate it anyway.**
+
+Because in the moment, you didn't know:
+- *When* the crash would hit
+- *How bad* it would affect your exam/sleep/workout
+- *What to do differently* to minimize the damage
+
+**The harm is done. The regret is real.**
+
+Current food apps tell you "this is unhealthy" — yeah, no shit. But they don't tell you:
+- How to eat it smarter
+- How to reduce the harm
+- How to time it better for your life
+
+**That's the gap BiteAid fills.**
 
 ---
 
 ## 💡 The Solution
 
-BiteAid analyzes your meal **AND** your situation.
+**BiteAid doesn't judge you. It helps you.**
+
+Already decided to eat that burger? Cool. Here's how to **minimize the damage**:
 
 ### How it works:
 
-**1. Upload a photo** of your meal
+**1. Upload a photo** of what you're about to eat
 
 **2. (Optional) Tell us what's happening:**
    - "exam in 2 hours"
@@ -38,10 +57,13 @@ BiteAid analyzes your meal **AND** your situation.
    - "about to hit the gym"
    - Or use voice input 🎤
 
-**3. Get context-aware advice:**
-   - **DO THIS / SKIP THIS** adapted to your situation
-   - **Adaptive timeline** showing when effects hit
-   - **Warnings** about crashes at critical moments
+**3. Get harm reduction advice:**
+   - **DO THIS:** "Eat protein first, drink water, skip the fries"
+   - **SKIP THIS:** "Don't finish all the bread — crash risk"
+   - **TIMELINE:** "You'll crash at 1.5h — right when your exam starts"
+   - **QUICK FIXES:** Actions you can take right now to reduce harm
+
+**Eat now. Fix later. Live smarter.**
 
 ---
 
@@ -58,15 +80,17 @@ Timeline: 2 hours
 Advice: "Focus on protein first, skip fries entirely"
 Warning: "Sugar crash at 1.5h — right when exam starts"
 Peak focus: +1h (too early for exam)
+Harm reduction: "Eat chicken only, drink 500ml water"
 ```
 
 #### Context: "Late night study session"
 ```
-🌙 LATE NIGHT MODE  
+🌙 LATE NIGHT MODE
 Timeline: 4 hours
 Advice: "Eat only 2/3, pair with herbal tea"
 Focus: Sleep quality + sustained energy
 Warning: "Heavy meal delays sleep by 90min"
+Harm reduction: "Skip rice, keep protein, finish by 10pm"
 ```
 
 #### Context: "Pre-workout in 30min"
@@ -76,6 +100,7 @@ Timeline: 1 hour
 Advice: "Timing mismatch — eat AFTER gym"
 Issue: Meal needs 45min to digest
 Alternative: "Light snack now, this meal post-workout"
+Harm reduction: "If you eat now, skip fries, wait 45min before gym"
 ```
 
 #### No context given
@@ -84,6 +109,7 @@ Alternative: "Light snack now, this meal post-workout"
 Timeline: 6 hours
 Advice: General harm reduction
 Standard energy projection
+Impact: "Moderate — manageable if you follow DO/SKIP"
 ```
 
 **Same food. Different advice. Based on YOUR life.**
@@ -105,14 +131,14 @@ Complex biological reasoning:
 
 ### 3. **Adaptive Prompting**
 Different analysis per context:
-- Exam mode: Brain fuel optimization
-- Late night: Sleep quality + sustained energy
-- Workout: Performance timing
-- Meeting: Social performance (no bloating!)
+- Exam mode: Brain fuel optimization + crash prevention
+- Late night: Sleep quality + sustained energy balance
+- Workout: Performance timing + recovery optimization
+- Meeting: Social performance (no bloating, alertness)
 
 ### 4. **Real-time Processing**
 - Gemini Flash: Image analysis <500ms
-- Gemini Pro: Extended thinking for predictions
+- Gemini Pro: Extended thinking for harm reduction strategy
 - Streaming: Results appear as they're generated
 
 ---
@@ -133,15 +159,15 @@ Different analysis per context:
 ┌─────────────────────────────────────────────┐
 │ Gemini 3 API                                │
 │ • Flash: Image analysis (fast)              │
-│ • Pro: Extended thinking (deep reasoning)   │
+│ • Pro: Extended thinking (harm reduction)   │
 │ • Mode detection from context               │
 └─────────────────┬───────────────────────────┘
                   ↓
 ┌─────────────────────────────────────────────┐
 │ Context-Aware Analysis                      │
 │ • Adaptive timeline (2h/4h/6h)              │
-│ • Mode-specific advice                      │
-│ • Structured JSON output                    │
+│ • Mode-specific harm reduction              │
+│ • Crash prediction + prevention             │
 └─────────────────┬───────────────────────────┘
                   ↓
 ┌─────────────────────────────────────────────┐
@@ -166,39 +192,45 @@ Different analysis per context:
 | Feature | BiteAid | MyFitnessPal | Yuka | Nutritionix |
 |---------|---------|--------------|------|-------------|
 | **Context-aware analysis** | ✅ | ❌ | ❌ | ❌ |
+| **Harm reduction focus** | ✅ | ❌ | ❌ | ❌ |
 | **Adaptive timeline** | ✅ | ❌ | ❌ | ❌ |
+| **Crash prediction** | ✅ | ❌ | ❌ | ❌ |
 | **Voice input** | ✅ | ❌ | ❌ | ❌ |
 | **Extended thinking** | ✅ | ❌ | ❌ | ❌ |
 | **Privacy-first (no accounts)** | ✅ | ❌ | ❌ | ❌ |
 | **Zero data storage** | ✅ | ❌ | ❌ | ❌ |
+| **Non-judgmental** | ✅ | ❌ | ❌ | ❌ |
 | **Free** | ✅ | ❌ (paid) | ✅ | ❌ |
-| **Real-time processing** | ✅ | ❌ | ❌ | ❌ |
 
-**BiteAid is the only food app that understands your life context.**
+**BiteAid is the only food app focused on harm reduction, not judgment.**
 
 ---
 
 ## 📊 Use Cases
 
 ### 👨‍🎓 Students
-- Before exams: Optimize for focus, avoid crashes
-- Late night study: Balance energy + sleep quality
-- Between classes: Quick decisions with voice input
+- **Before exams:** Prevent crashes, optimize focus timing
+- **Late night study:** Balance energy + sleep quality
+- **Between classes:** Quick harm reduction via voice input
+- **Dining hall:** Make smarter choices when options are limited
 
 ### 💼 Professionals
-- Before meetings: Avoid bloating, maintain alertness
-- Lunch breaks: Context-aware choices
-- Travel: Quick analysis in unfamiliar restaurants
+- **Before meetings:** Avoid bloating, maintain alertness
+- **Lunch breaks:** Context-aware harm reduction
+- **Business dinners:** Social performance optimization
+- **Travel:** Quick analysis in unfamiliar restaurants
 
 ### 🏋️ Athletes
-- Pre-workout: Timing optimization
-- Post-workout: Recovery fuel analysis
-- Competition prep: Performance-focused advice
+- **Pre-workout:** Timing optimization, avoid sluggishness
+- **Post-workout:** Recovery fuel analysis
+- **Competition prep:** Performance-focused harm reduction
+- **Training nutrition:** Understand meal timing impact
 
 ### 🌙 Night Workers
-- Shift work: Sleep-aware meal analysis
-- Energy management: Sustained focus without crashes
-- Circadian rhythm: Context-aware timing
+- **Shift work:** Sleep-aware meal analysis
+- **Energy management:** Sustained focus without crashes
+- **Circadian rhythm:** Context-aware timing advice
+- **Late eating:** Minimize sleep disruption
 
 ---
 
@@ -210,6 +242,7 @@ Different analysis per context:
 - ❌ No tracking or analytics
 - ❌ No selling your data
 - ❌ No email collection
+- ❌ No judgment or shame
 
 **Your meal photos are:**
 - Analyzed in real-time
@@ -217,7 +250,7 @@ Different analysis per context:
 - Never stored on our servers
 - Never used for training
 
-**Pure privacy. Pure AI. Pure help.**
+**We don't track what you eat. We don't judge what you eat. We just help you eat it smarter.**
 
 ---
 
@@ -252,28 +285,32 @@ npm run dev
 ## 🎨 Features in Detail
 
 ### Context Input
-- **Text input:** Type naturally ("exam tmrw morning")
-- **Voice input:** 🎤 Tap to speak
+- **Text input:** Type naturally ("exam tmrw morning", "pulling all nighter")
+- **Voice input:** 🎤 Tap to speak (hands-free)
 - **Quick options:** One-tap presets (Exam / Late Night / Workout / Meeting)
 - **Optional:** Works perfectly in default mode too
+- **Messy input handling:** AI interprets casual language
 
 ### Adaptive Analysis
-- **Smart mode detection:** AI interprets messy input
+- **Smart mode detection:** AI interprets your situation
 - **Timeline adjustment:** 1h, 2h, 4h, or 6h based on context
-- **Advice customization:** DO/SKIP tailored to your goal
-- **Impact prediction:** When crashes happen relative to your event
+- **Harm reduction focus:** Minimize damage, not prevent eating
+- **Crash prediction:** When and why energy drops
+- **Quick fixes:** Actionable steps to reduce harm
 
 ### Visual Feedback
-- **Context badge:** Photo shows detected mode
+- **Context badge:** Photo shows detected mode instantly
 - **Color coding:** Emerald (good), Rose (bad), Blue (info)
 - **Confidence indicators:** Know when AI is uncertain
+- **Impact scoring:** LOW/MODERATE/HIGH harm levels
 - **Interactive items:** Tap to simulate removing ingredients
 
 ### Simulation
-- **"What if" scenarios:** Remove items, see impact
-- **Trade-off analysis:** Understand nutritional changes
+- **"What if" scenarios:** Remove items, see impact changes
+- **Trade-off analysis:** Understand nutritional consequences
 - **Smart suggestions:** AI recommends alternatives
 - **Quick decisions:** 5-second scannable results
+- **Harm comparison:** Current meal vs modified version
 
 ---
 
@@ -285,55 +322,66 @@ User input: "got midterms tmrw need to cram tonight"
 
 AI interprets:
 → Situation: Exam (tomorrow) + Late night study (tonight)
-→ Urgency: HIGH (keyword: "need to", "cram")
+→ Urgency: HIGH (keywords: "need to", "cram")
 → Time sensitivity: ~12-16 hours
 → Primary concern: Sustained focus + sleep quality
-→ Mode selected: LATE NIGHT (since eating is NOW for tonight)
+→ Mode selected: LATE NIGHT (eating NOW for tonight)
 
 Adaptive prompt adjustments:
 → Timeline: 4 hours (covers study session)
 → Focus metrics: Energy sustainability, sleep impact
 → Warnings: Bedtime timing, morning grogginess
+→ Harm reduction: Balance energy vs sleep quality
 ```
 
 ### Extended Thinking in Action
 
-For exam mode analysis:
+For exam mode harm reduction:
 ```
 Standard AI: "This meal has protein and carbs"
 
 Gemini 3 Extended Thinking:
 1. Detected: Fried chicken (high fat), white rice (high GI)
 2. Absorption timeline: Fat = 60-90min, carbs = 30-45min
-3. Energy peak calculation: +45min (carb peak)
-4. Crash prediction: +90min (insulin spike + fat digestion)
-5. Exam timing: 2 hours = 120min
+3. Energy peak calculation: +45min (carb spike)
+4. Crash prediction: +90min (insulin response + fat digestion)
+5. Exam timing: 2 hours = 120min from now
 6. Delta analysis: Peak at 45min, crash at 90min, exam at 120min
-7. Conclusion: "You'll crash 30min before exam — bad timing"
-8. Recommendation: "Reduce carbs, increase protein stability"
+7. Harm assessment: "Crash 30min before exam — critical timing issue"
+8. Reduction strategy: "Remove rice (delay crash), keep protein (stability), add water (dilution)"
 
-Result: Context-aware, biologically-grounded advice
+Result: Context-aware harm reduction, not generic advice
 ```
 
 ### Adaptive Timeline Generation
 ```javascript
-// Exam in 2h → Generate 5 points
+// Exam in 2h → Generate 5 points, focus on crash timing
 timeline = [
-  { time: "now", energy: 80 },
-  { time: "+30min", energy: 95, note: "Peak focus" },
-  { time: "+1h", energy: 75, note: "Starting decline" },
-  { time: "+1.5h", energy: 60, note: "Crash zone" },
-  { time: "+2h (EXAM)", energy: 55, note: "Below optimal" }
+  { time: "now", energy: 80, harm: "Starting point" },
+  { time: "+30min", energy: 95, harm: "Peak focus - good" },
+  { time: "+1h", energy: 75, harm: "Starting decline" },
+  { time: "+1.5h", energy: 60, harm: "⚠️ Crash zone" },
+  { time: "+2h (EXAM)", energy: 55, harm: "❌ Below optimal - CRITICAL" }
 ]
 
-// Late night study → Generate 5 points over 4h
+Harm reduction advice:
+→ "Skip rice to delay crash"
+→ "Drink 500ml water to slow absorption"
+→ "Keep banana as backup for +1.5h"
+
+// Late night study → Generate 5 points over 4h, focus on sleep
 timeline = [
-  { time: "now", energy: 80 },
-  { time: "+1h", energy: 85, note: "Good focus" },
-  { time: "+2h", energy: 80, note: "Sustained" },
-  { time: "+3h", energy: 70, note: "Moderate dip" },
-  { time: "+4h", energy: 60, note: "Need break" }
+  { time: "now", energy: 80, harm: "Heavy meal starting" },
+  { time: "+1h", energy: 85, harm: "Good focus window" },
+  { time: "+2h", energy: 80, harm: "Sustained - good" },
+  { time: "+3h", energy: 70, harm: "Natural dip" },
+  { time: "+4h", energy: 60, harm: "Sleep quality impacted if eating now" }
 ]
+
+Harm reduction advice:
+→ "Eat only 2/3 portion to reduce digestion load"
+→ "Finish by 10pm for midnight sleep"
+→ "Pair with green tea for alertness without sleep disruption"
 ```
 
 ---
@@ -342,10 +390,12 @@ timeline = [
 
 - **React 19** — Latest React with concurrent features
 - **TypeScript** — Type-safe development
-- **Gemini 3 API** — Multimodal AI with extended thinking
+- **Gemini 3 Flash** — Fast multimodal analysis
+- **Gemini 3 Pro** — Extended thinking (harm reduction reasoning)
 - **Tailwind CSS** — Utility-first styling
 - **Vite** — Lightning-fast build tool
 - **Lucide Icons** — Beautiful, consistent icons
+- **Web Speech API** — Voice input
 
 ---
 
@@ -353,35 +403,41 @@ timeline = [
 
 ### Current Impact
 - **Target users:** 20M+ college students worldwide
-- **Problem solved:** Daily decision paralysis (3x/day)
-- **Unique value:** First context-aware food AI
-- **Privacy stance:** Zero data collection, ethical AI
+- **Problem solved:** Meal regret → harm reduction intelligence
+- **Unique value:** First context-aware harm reduction AI
+- **Privacy stance:** Zero data collection, no judgment, pure help
 
 ### Future Vision
-- **Personalization:** Learn preferences over sessions (with user consent)
+- **Personalization:** Learn preferences over sessions (opt-in only)
 - **Multi-language:** Support 10+ languages
 - **Offline mode:** Local model for privacy + speed
 - **Wearable integration:** Apple Watch, Fitbit timing optimization
-- **Group decisions:** Analyze meals for multiple people at once
+- **Group harm reduction:** Analyze meals for multiple people at once
+- **Restaurant integration:** Real-time menu harm reduction
 
 ---
 
 ## 🏆 Why This Matters
 
 ### For Users
-Every meal is a decision. Bad decisions compound:
-- Exam crash → Lower grade → GPA impact
-- Poor sleep → Fatigue → Productivity loss
-- Wrong pre-workout fuel → Injury risk
+Bad meals happen. The harm compounds:
+- Exam crash → Lower grade → GPA impact → Career consequences
+- Poor sleep → Chronic fatigue → Mental health decline
+- Wrong pre-workout fuel → Injury → Months of recovery
 
-**BiteAid turns meals into strategic choices.**
+**BiteAid doesn't prevent bad meals. It reduces the harm when they happen.**
+
+Because let's be real: you're eating that pizza.
+
+The question is: **how do you eat it smarter?**
 
 ### For AI Research
 Demonstrates:
 - **Context-aware prompting** at scale
 - **Extended thinking** for biological reasoning
-- **Multimodal chaining** (vision + text)
+- **Multimodal chaining** (vision + text + context)
 - **Adaptive UX** based on AI interpretation
+- **Harm reduction** as an AI application domain
 
 **Pushes boundaries of what AI can do for daily decisions.**
 
@@ -401,6 +457,7 @@ Special thanks to:
 - Google AI team for Gemini 3 API
 - Students who tested early versions
 - The hackathon community for feedback
+- Everyone who eats first, regrets later (we see you)
 
 ---
 
@@ -416,8 +473,10 @@ Special thanks to:
 
 **Built with ❤️ using Gemini 3**
 
-Privacy First • No Data Stored • No Tracking
+**Eat Now, Fix Later**
 
-[Try BiteAid](https://ai.studio/apps/drive/1HMaj_lwAOwnCdfhxL97YWNTs38mNX0dv) • [View Code](#) • [Report Issue](#)
+Privacy First • No Data Stored • No Judgment • No Tracking
+
+[Try BiteAid](https://ai.studio/apps/drive/1HMaj_lwAOwnCdfhxL97YWNTs38mNX0dv)
 
 </div>
