@@ -68,6 +68,7 @@ export interface ExamAnalysisResult {
     brain_fog_risk: string;
     overall_prediction: string;
   };
+  after_effect_timeline: TimelineCheckpoint[]; // Added to ensure access in all modes
   thinking_process?: string[];
 }
 
@@ -88,6 +89,7 @@ export interface MeetingAnalysisResult {
     action: string;
     impact: string;
   }[];
+  after_effect_timeline: TimelineCheckpoint[]; // Added to ensure access in all modes
   thinking_process?: string[];
 }
 
@@ -106,6 +108,7 @@ export interface WorkoutAnalysisResult {
     best_option: string;
     intensity_adjustment?: string;
   };
+  after_effect_timeline: TimelineCheckpoint[]; // Added to ensure access in all modes
   thinking_process?: string[];
 }
 
@@ -125,6 +128,7 @@ export type HealthGoal =
   | 'Improve Sleep'
   | 'Maintain Energy';
 
+// Reverted Simulation Types
 export interface ImpactMetric {
   label: string;
   trend: 'increase' | 'decrease' | 'neutral';
@@ -145,50 +149,52 @@ export interface PointExplanation {
   practical_advice: string;
 }
 
-// --- NEW TYPES FOR CANTEEN PICKER ---
+// --- SMART CANTEEN & LIVE SCAN TYPES ---
 
-export type CanteenGoal = 'Sustain Energy' | 'Maximum Focus' | 'Light & Recovery' | 'Balanced & Healthy' | 'Comfort & Variety';
+export type CanteenGoal = 
+  | 'Sustain Energy' 
+  | 'Maximum Focus' 
+  | 'Light & Recovery' 
+  | 'Balanced & Healthy' 
+  | 'Comfort & Variety';
+
+export type KitchenAccess = 'Yes' | 'Limited' | 'No';
+export type TimeAvailable = string; // e.g., "~10 min"
+export type EnergyLevel = 'High' | 'Okay' | 'Low';
 
 export interface ScannedItem {
-  id: string; 
   name: string;
-  category?: 'Meal' | 'Snack' | 'Drink' | 'Packaged' | 'Other';
+  category: 'Meal' | 'Snack' | 'Drink' | 'Packaged' | 'Other';
   price_estimate?: string;
   confidence: ConfidenceLevel;
-  seen_count?: number; 
+  seen_count?: number; // Internal tracking
+  id?: string; // Internal key
 }
 
 export interface FinalCanteenDecision {
   final_choice: {
     name: string;
-    description: string;
-    price: string;
     emoji: string;
-    type: 'Top Pick' | 'Combo';
+    price: string;
+    description: string;
+    type: 'Single' | 'Combo';
   };
   reasoning: string;
   nutrition_highlights: string[];
   rejected_alternatives: {
     name: string;
+    price_estimate: string;
     reason: string;
-    price_estimate?: string;
   }[];
 }
-
-export type KitchenAccess = 'Yes' | 'Limited' | 'No';
-export type TimeAvailable = '~10 min' | '~20 min' | '30+ min';
-export type EnergyLevel = 'High' | 'Okay' | 'Low';
 
 export interface CookAtHomeResult {
   dish_name: string;
   why_it_fits: string;
-  ingredients_needed: string[];
   instructions: string[];
-  time_estimate: string;
 }
 
 export interface MissionBrief {
-  goal: CanteenGoal;
   seek: string[];
   avoid: string[];
 }

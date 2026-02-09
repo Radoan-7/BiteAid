@@ -1,14 +1,14 @@
+
 import React, { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   AnalysisResult, 
-  ConfidenceLevel, 
   SimulationResult, 
-  TimelineCheckpoint, 
   DefaultAnalysisResult,
   ExamAnalysisResult,
   MeetingAnalysisResult,
-  WorkoutAnalysisResult
+  WorkoutAnalysisResult,
+  TimelineCheckpoint
 } from '../types';
 import { simulateImpact } from '../services/geminiService';
 import { jsPDF } from "jspdf";
@@ -16,16 +16,12 @@ import html2canvas from "html2canvas";
 import { 
   AlertTriangle, 
   CheckCircle2, 
-  Info, 
   Download, 
   Loader2, 
   X, 
   Sparkles, 
   ArrowUpRight, 
-  ArrowDownRight, 
   ArrowDown, 
-  Minus, 
-  Activity, 
   Brain,
   Zap,
   ChevronDown,
@@ -37,7 +33,11 @@ import {
   Siren,
   Wind,
   Flame,
-  BatteryCharging
+  BatteryCharging,
+  Activity,
+  ArrowRight,
+  RefreshCw,
+  Info
 } from 'lucide-react';
 
 // --- SUB-COMPONENTS FOR NEW MODES ---
@@ -65,6 +65,51 @@ const ThinkingProcess: React.FC<{ steps: string[] }> = ({ steps }) => {
            ))}
         </div>
       )}
+    </div>
+  );
+};
+
+// --- TIMELINE WIDGET (REUSABLE) ---
+const TimelineWidget: React.FC<{ timeline: TimelineCheckpoint[]; quickFix?: string }> = ({ timeline, quickFix }) => {
+  const t0 = timeline?.[0]; 
+  const t1 = timeline?.[1];
+  const t2 = timeline?.[2];
+
+  if (!t0 || !t1 || !t2) return null;
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+      <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2 mb-6">
+        <Zap className="w-5 h-5 text-amber-500" /> WHAT HAPPENS NEXT
+      </h3>
+      <div className="grid md:grid-cols-2 gap-8">
+        <div className="space-y-4">
+            <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+              <span className="text-sm font-bold text-slate-500">Current</span>
+              <span className="text-sm font-bold text-slate-900">Energy {t0.energy_score}%</span>
+            </div>
+            <div className="flex items-center justify-between p-2">
+              <span className="text-sm font-medium text-slate-500">+{t1.hour_offset}h ({t1.time_window})</span>
+              <div className="flex items-center gap-2">
+                  {t1.energy_score < t0.energy_score ? <ArrowDown className="w-4 h-4 text-rose-500" /> : <ArrowUpRight className="w-4 h-4 text-emerald-500" />}
+                  <span className="text-sm font-bold text-slate-900">{t1.energy_score}%</span>
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-2 border-t border-slate-100">
+              <span className="text-sm font-medium text-slate-500">+{t2.hour_offset}h ({t2.time_window})</span>
+              <div className="flex items-center gap-2">
+                  {t2.energy_score < t1.energy_score ? <ArrowDown className="w-4 h-4 text-rose-500" /> : <ArrowUpRight className="w-4 h-4 text-emerald-500" />}
+                  <span className="text-sm font-bold text-slate-900">{t2.energy_score}%</span>
+              </div>
+            </div>
+        </div>
+        {quickFix && (
+          <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-100/50 flex flex-col justify-center h-full">
+            <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest block mb-2">💊 Quick Fix</span>
+            <p className="text-sm text-blue-900 font-bold leading-snug">{quickFix}</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -422,7 +467,9 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
   // -- EXISTING STATE FOR DEFAULT VIEW --
   const [simulatingItem, setSimulatingItem] = useState<string | null>(null);
   const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
-  const [selectedMetricIndex, setSelectedMetricIndex] = useState<number | null>(null);
+  
+  // -- NEW STATE FOR TABBED SIMULATION MODAL --
+  const [activeTab, setActiveTab] = useState<'impact' | 'explanation' | 'swap'>('impact');
 
   // Helper for Default View
   const handleSimulate = async (item: string) => {
@@ -436,7 +483,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
     if (simulatingItem) return;
     setSimulatingItem(item);
     setSimulationResult(null);
-    setSelectedMetricIndex(null);
+    setActiveTab('impact');
     try {
       const simData = await simulateImpact(result as DefaultAnalysisResult, item);
       setSimulationResult(simData);
@@ -499,15 +546,8 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
 
   // --- RENDER DEFAULT VIEW (Updated Logic) ---
   const renderDefaultView = (data: DefaultAnalysisResult) => {
-    const t0 = data.after_effect_timeline?.[0]; 
-    const t1 = data.after_effect_timeline?.[1];
-    const t2 = data.after_effect_timeline?.[2];
-    const hasTimelineData = t0 && t1 && t2;
-    const quickFix = data.actionable_guidance.consider_balancing[0]?.text;
-    
     return (
       <div className="space-y-6">
-        
         {/* Action Cards */}
         <div className="grid md:grid-cols-2 gap-4">
            <div className="bg-emerald-50/40 border border-emerald-100 rounded-2xl p-6">
@@ -538,43 +578,6 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
               </ul>
            </div>
         </div>
-
-        {/* Timeline Summary */}
-        {hasTimelineData && (
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-            <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2 mb-6">
-              <Zap className="w-5 h-5 text-amber-500" /> WHAT HAPPENS NEXT
-            </h3>
-            <div className="grid md:grid-cols-2 gap-8">
-              <div className="space-y-4">
-                 <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
-                    <span className="text-sm font-bold text-slate-500">Current</span>
-                    <span className="text-sm font-bold text-slate-900">Energy {t0.energy_score}%</span>
-                 </div>
-                 <div className="flex items-center justify-between p-2">
-                    <span className="text-sm font-medium text-slate-500">+{t1.hour_offset}h ({t1.time_window})</span>
-                    <div className="flex items-center gap-2">
-                       {t1.energy_score < t0.energy_score ? <ArrowDown className="w-4 h-4 text-rose-500" /> : <ArrowUpRight className="w-4 h-4 text-emerald-500" />}
-                       <span className="text-sm font-bold text-slate-900">{t1.energy_score}%</span>
-                    </div>
-                 </div>
-                 <div className="flex items-center justify-between p-2 border-t border-slate-100">
-                    <span className="text-sm font-medium text-slate-500">+{t2.hour_offset}h ({t2.time_window})</span>
-                    <div className="flex items-center gap-2">
-                       {t2.energy_score < t1.energy_score ? <ArrowDown className="w-4 h-4 text-rose-500" /> : <ArrowUpRight className="w-4 h-4 text-emerald-500" />}
-                       <span className="text-sm font-bold text-slate-900">{t2.energy_score}%</span>
-                    </div>
-                 </div>
-              </div>
-              {quickFix && (
-                <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-100/50 flex flex-col justify-center h-full">
-                  <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest block mb-2">💊 Quick Fix</span>
-                  <p className="text-sm text-blue-900 font-bold leading-snug">{quickFix}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     );
   };
@@ -585,6 +588,12 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
   // We will prioritize the new Default-based structure if the fields match, falling back to legacy if necessary.
   
   const isContextMode = result.mode && ['exam', 'latenight', 'workout', 'meeting', 'default'].includes(result.mode) && 'detected_foods' in result;
+  
+  // Safe Access to Timeline (which is present in all schemas implicitly)
+  // @ts-ignore
+  const timelineData: TimelineCheckpoint[] = result.after_effect_timeline || [];
+  // @ts-ignore
+  const quickFixData = (result as DefaultAnalysisResult).actionable_guidance?.consider_balancing?.[0]?.text;
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 relative pb-32">
@@ -705,6 +714,11 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
         {/* Render Default View for 'none', 'default', OR the new context modes */}
         {(isContextMode || !result.mode || result.mode === 'none') && renderDefaultView(result as DefaultAnalysisResult)}
 
+        {/* --- GLOBAL TIMELINE (Added for ALL modes) --- */}
+        {timelineData.length > 0 && (
+            <TimelineWidget timeline={timelineData} quickFix={quickFixData} />
+        )}
+
       </div>
 
       {/* Footer Buttons */}
@@ -726,79 +740,88 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ result, imagePreview
         </button>
       </div>
 
-      {/* Impact Simulation Modal */}
+      {/* REVERTED TABBED SIMULATION MODAL */}
       {simulationResult && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 h-[100dvh] w-screen">
-          <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm transition-opacity" onClick={() => setSimulationResult(null)} />
-          <div className="w-full max-w-lg bg-slate-900 text-white rounded-3xl shadow-2xl border border-slate-700/50 relative overflow-hidden flex flex-col max-h-[80vh] sm:max-h-[85vh] animate-in zoom-in-95 duration-300 mx-auto">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
-            <div className="p-6 pb-2 shrink-0 relative z-20 flex justify-between items-start">
-              <div>
-                 <h3 className="text-emerald-400 font-semibold text-xs uppercase tracking-widest mb-1 flex items-center gap-2">
-                   <Sparkles className="w-3 h-3" /> Simulation Result
-                 </h3>
-                 <h2 className="text-xl font-bold pr-2">{simulationResult.title}</h2>
-              </div>
-              <button 
-                onClick={() => setSimulationResult(null)}
-                className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-400 hover:text-white transition-colors border border-slate-700/50 shrink-0"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="overflow-y-auto p-6 pt-4 relative z-10 custom-scrollbar">
-               <div className="grid grid-cols-3 gap-2 mb-6">
-                  {simulationResult.metrics.map((m, i) => {
-                    const isSelected = selectedMetricIndex === i;
-                    return (
-                      <button 
-                        key={i}
-                        onClick={() => setSelectedMetricIndex(i)}
-                        className={`
-                           flex flex-col items-center justify-center p-2.5 rounded-xl border transition-all duration-200
-                           ${isSelected 
-                              ? 'bg-slate-800/90 border-emerald-500/50 ring-1 ring-emerald-500/20' 
-                              : 'bg-slate-800/40 border-slate-700 hover:bg-slate-800'
-                           }
-                        `}
-                      >
-                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 text-center w-full truncate">{m.label}</span>
-                         <div className="flex items-center gap-1.5">
-                            {m.trend === 'increase' && <ArrowUpRight className="w-4 h-4 text-rose-400" />}
-                            {m.trend === 'decrease' && <ArrowDownRight className="w-4 h-4 text-emerald-400" />}
-                            {m.trend === 'neutral' && <Minus className="w-4 h-4 text-slate-400" />}
-                            <span className={`text-sm font-bold ${m.trend === 'decrease' ? 'text-emerald-300' : m.trend === 'increase' ? 'text-rose-300' : 'text-slate-300'}`}>
-                               {m.trend === 'neutral' ? 'Flat' : m.trend.charAt(0).toUpperCase() + m.trend.slice(1)}
-                            </span>
-                         </div>
-                      </button>
-                    );
-                  })}
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setSimulationResult(null)} />
+          
+          <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300">
+            {/* Header */}
+            <div className="p-6 pb-2 shrink-0">
+               <div className="flex justify-between items-start mb-2">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Simulation</span>
+                  <button onClick={() => setSimulationResult(null)} className="p-1 hover:bg-slate-100 rounded-full transition-colors">
+                     <X className="w-5 h-5 text-slate-400" />
+                  </button>
                </div>
-               {selectedMetricIndex !== null ? (
-                   <div className="bg-slate-800/50 p-5 rounded-2xl border border-slate-700/50 animate-in fade-in duration-300">
-                       <div className="flex gap-3">
-                          <div className="shrink-0 p-2 bg-blue-500/10 rounded-lg h-fit">
-                             <Info className="w-5 h-5 text-blue-400" />
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-emerald-400 text-sm mb-1 uppercase tracking-wide">
-                              {simulationResult.metrics[selectedMetricIndex].label} Impact
-                            </h4>
-                            <p className="text-sm text-slate-200 leading-relaxed">
-                              {simulationResult.metrics[selectedMetricIndex].impact_analysis}
-                            </p>
-                          </div>
-                       </div>
-                   </div>
-               ) : (
-                   <div className="flex flex-col items-center justify-center py-6 text-slate-500 bg-slate-800/20 rounded-2xl border border-slate-800 border-dashed animate-pulse">
-                      <div className="bg-slate-800 p-2 rounded-full mb-2">
-                        <Sparkles className="w-4 h-4 text-slate-400" />
-                      </div>
-                      <span className="text-xs font-bold uppercase tracking-widest">Tap a card to view impact details</span>
-                   </div>
+               <h2 className="text-xl font-bold text-slate-900">{simulationResult.title}</h2>
+            </div>
+
+            {/* Tabs */}
+            <div className="px-6 border-b border-slate-100 flex gap-6 shrink-0">
+               {(['impact', 'explanation', 'swap'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`pb-3 text-sm font-bold capitalize transition-colors relative ${activeTab === tab ? 'text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}
+                  >
+                    {tab}
+                    {activeTab === tab && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-900 rounded-t-full"></div>}
+                  </button>
+               ))}
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-6 min-h-[200px]">
+               {activeTab === 'impact' && (
+                  <div className="space-y-4">
+                     {simulationResult.metrics.map((metric, i) => (
+                        <div key={i} className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                           <div className="flex justify-between items-center mb-1">
+                              <span className="font-bold text-slate-700 text-sm">{metric.label}</span>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${metric.trend === 'decrease' ? 'bg-emerald-100 text-emerald-700' : metric.trend === 'increase' ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-600'}`}>
+                                 {metric.trend.toUpperCase()}
+                              </span>
+                           </div>
+                           <p className="text-sm font-medium text-slate-600">{metric.impact_analysis}</p>
+                        </div>
+                     ))}
+                  </div>
                )}
+
+               {activeTab === 'explanation' && (
+                  <div className="space-y-4">
+                     <p className="text-slate-600 leading-relaxed font-medium">
+                        {simulationResult.explanation}
+                     </p>
+                     <div className="flex items-center gap-2 mt-4 text-xs font-bold text-slate-400">
+                        <Info className="w-4 h-4" />
+                        Confidence: {simulationResult.explanation_confidence}
+                     </div>
+                  </div>
+               )}
+
+               {activeTab === 'swap' && (
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-6 text-center">
+                     <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm text-2xl">
+                        🥗
+                     </div>
+                     <h3 className="font-bold text-emerald-900 mb-2">Smart Swap</h3>
+                     <p className="text-emerald-800 leading-relaxed">
+                        {simulationResult.swap_suggestion}
+                     </p>
+                  </div>
+               )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0">
+               <button onClick={() => setSimulationResult(null)} className="px-5 py-2.5 text-slate-600 font-bold text-sm hover:bg-slate-200 rounded-xl transition-colors">
+                  Close
+               </button>
+               <button onClick={() => setSimulationResult(null)} className="px-5 py-2.5 bg-slate-900 text-white font-bold text-sm hover:bg-slate-800 rounded-xl transition-colors shadow-lg shadow-slate-900/10">
+                  Got it
+               </button>
             </div>
           </div>
         </div>,
